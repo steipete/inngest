@@ -38,6 +38,10 @@ export const ListRunsResponseSchema = z.object({
   data: z.array(InngestRunSchema),
   has_more: z.boolean().optional(),
   cursor: z.string().optional(),
+  metadata: z.object({
+    fetched_at: z.string(),
+    cached_until: z.string().nullable(),
+  }).optional(),
 });
 
 export const EventRunsResponseSchema = z.object({

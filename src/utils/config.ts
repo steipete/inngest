@@ -2,7 +2,11 @@ import { config } from 'dotenv';
 import { z } from 'zod';
 import { type ApiConfig, ApiConfigSchema } from '../api/types.js';
 
-config();
+// Only load .env file if INNGEST_SIGNING_KEY is not already set
+if (process.env.NODE_ENV !== 'test' && !process.env.INNGEST_SIGNING_KEY) {
+  process.env.DOTENVX_QUIET = 'true';
+  config();
+}
 
 const EnvSchema = z.object({
   INNGEST_SIGNING_KEY: z.string().min(1, 'INNGEST_SIGNING_KEY environment variable is required'),

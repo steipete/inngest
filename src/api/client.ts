@@ -125,7 +125,17 @@ export class InngestClient {
 
   async getRun(runId: string): Promise<InngestRun> {
     const response = await this.client.get(`/v1/runs/${runId}`);
-    return this.validateResponse<InngestRun>(response.data, InngestRunSchema);
+    return this.validateResponse<InngestRun>(response.data.data, InngestRunSchema);
+  }
+
+  async listEvents(options: { limit?: number; cursor?: string; name?: string } = {}): Promise<{ data: any[]; metadata: any }> {
+    const params = new URLSearchParams();
+    if (options.limit) params.append('limit', options.limit.toString());
+    if (options.cursor) params.append('cursor', options.cursor);
+    if (options.name) params.append('name', options.name);
+
+    const response = await this.client.get(`/v1/events?${params}`);
+    return response.data;
   }
 
   async getEventRuns(eventId: string): Promise<InngestRun[]> {
@@ -140,15 +150,48 @@ export class InngestClient {
   async listRuns(
     options: { status?: string; function_id?: string; cursor?: string; limit?: number } = {}
   ): Promise<ListRunsResponse> {
-    const params = new URLSearchParams();
+    // Get recent events first
+    const eventsParams = new URLSearchParams();
+    eventsParams.append('limit', (options.limit || 50).toString());
+    if (options.cursor) eventsParams.append('cursor', options.cursor);
 
-    if (options.status) params.append('status', options.status);
-    if (options.function_id) params.append('function_id', options.function_id);
-    if (options.cursor) params.append('cursor', options.cursor);
-    if (options.limit) params.append('limit', options.limit.toString());
+    const eventsResponse = await this.client.get(`/v1/events?${eventsParams}`);
+    const events = eventsResponse.data.data;
 
-    const response = await this.client.get(`/v1/runs?${params}`);
-    return this.validateResponse<ListRunsResponse>(response.data, ListRunsResponseSchema);
+    // Get runs from events that have run_id
+    const runs: InngestRun[] = [];
+    const seenRunIds = new Set<string>();
+
+    for (const event of events) {
+      if (event.data?.run_id) {
+        const runId = event.data.run_id;
+        if (!seenRunIds.has(runId)) {
+          seenRunIds.add(runId);
+          try {
+            const run = await this.getRun(runId);
+            
+            // Apply filters
+            if (options.status && run.status !== options.status) continue;
+            if (options.function_id && run.function_id !== options.function_id) continue;
+            
+            runs.push(run);
+          } catch (error) {
+            // Skip runs that can't be fetched
+            continue;
+          }
+        }
+      }
+    }
+
+    const result = {
+      data: runs.slice(0, options.limit || 20),
+      metadata: {
+        fetched_at: new Date().toISOString(),
+        cached_until: null
+      }
+    };
+    
+    return this.validateResponse<ListRunsResponse>(result, ListRunsResponseSchema);
   }
 
   async getJobs(runId: string): Promise<InngestJob[]> {

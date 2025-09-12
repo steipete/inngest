@@ -85,7 +85,7 @@ describe('InngestClient', () => {
       };
 
       const mockAxiosInstance = mockedAxios.create();
-      vi.mocked(mockAxiosInstance.get).mockResolvedValue({ data: mockRun });
+      vi.mocked(mockAxiosInstance.get).mockResolvedValue({ data: { data: mockRun } });
 
       const result = await client.getRun('01HWAVJ8ASQ5C3FXV32JS9DV9Q');
 
@@ -111,24 +111,33 @@ describe('InngestClient', () => {
 
   describe('listRuns', () => {
     it('should list runs with default options', async () => {
-      const mockResponse = {
+      const mockEventsResponse = {
         data: [
           {
-            run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q',
-            status: 'Completed',
-            run_started_at: '2024-04-25T14:46:45.337Z',
-          },
-        ],
-        has_more: false,
+            name: 'test.event',
+            data: { run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q' }
+          }
+        ]
+      };
+      
+      const mockRunResponse = {
+        data: {
+          run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q',
+          status: 'Completed' as const,
+          run_started_at: '2024-04-25T14:46:45.337Z',
+        }
       };
 
       const mockAxiosInstance = mockedAxios.create();
-      vi.mocked(mockAxiosInstance.get).mockResolvedValue({ data: mockResponse });
+      vi.mocked(mockAxiosInstance.get)
+        .mockResolvedValueOnce({ data: mockEventsResponse })  // events call
+        .mockResolvedValueOnce({ data: mockRunResponse });    // run call
 
       const result = await client.listRuns();
 
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/runs?');
-      expect(result).toEqual(mockResponse);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/events?limit=50');
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toEqual(mockRunResponse.data);
     });
 
     it('should list runs with filters', async () => {
@@ -140,16 +149,15 @@ describe('InngestClient', () => {
       const mockAxiosInstance = mockedAxios.create();
       vi.mocked(mockAxiosInstance.get).mockResolvedValue({ data: mockResponse });
 
-      await client.listRuns({
+      const result = await client.listRuns({
         status: 'Running',
         function_id: 'test-function',
         cursor: 'test-cursor',
         limit: 50,
       });
 
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith(
-        '/v1/runs?status=Running&function_id=test-function&cursor=test-cursor&limit=50'
-      );
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/events?limit=50&cursor=test-cursor');
+      expect(result.data).toHaveLength(0);
     });
   });
 
