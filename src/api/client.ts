@@ -148,12 +148,41 @@ export class InngestClient {
   }
 
   async listRuns(
-    options: { status?: string; function_id?: string; cursor?: string; limit?: number } = {}
+    options: { 
+      status?: string; 
+      function_id?: string; 
+      cursor?: string; 
+      limit?: number;
+      after?: string;
+      before?: string;
+      hours?: number;
+    } = {}
   ): Promise<ListRunsResponse> {
-    // Get recent events first
+    // Get events - use larger limit and broader time range when filtering by status
     const eventsParams = new URLSearchParams();
-    eventsParams.append('limit', (options.limit || 50).toString());
+    const eventLimit = options.status ? Math.max(200, (options.limit || 20) * 10) : (options.limit || 50);
+    eventsParams.append('limit', eventLimit.toString());
     if (options.cursor) eventsParams.append('cursor', options.cursor);
+    
+    // Handle time range parameters
+    if (options.after) {
+      eventsParams.append('received_after', options.after);
+    } else if (options.before) {
+      eventsParams.append('received_before', options.before);
+    } else if (options.hours) {
+      const hoursAgo = new Date();
+      hoursAgo.setHours(hoursAgo.getHours() - options.hours);
+      eventsParams.append('received_after', hoursAgo.toISOString());
+    } else if (options.status) {
+      // Default: look back 24 hours when filtering by status
+      const dayAgo = new Date();
+      dayAgo.setHours(dayAgo.getHours() - 24);
+      eventsParams.append('received_after', dayAgo.toISOString());
+    }
+    
+    // Note: We don't pre-filter events by status because event names don't always 
+    // match final run status (e.g., failed runs can be later cancelled)
+    // Instead, we filter by status after fetching the actual run details
 
     const eventsResponse = await this.client.get(`/v1/events?${eventsParams}`);
     const events = eventsResponse.data.data;

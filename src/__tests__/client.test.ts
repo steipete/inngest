@@ -156,7 +156,10 @@ describe('InngestClient', () => {
         limit: 50,
       });
 
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/events?limit=50&cursor=test-cursor');
+      // When status is provided, it now includes event limit (500) and time range
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith(
+        expect.stringMatching(/\/v1\/events\?limit=500&cursor=test-cursor&received_after=/)
+      );
       expect(result.data).toHaveLength(0);
     });
   });

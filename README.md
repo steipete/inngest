@@ -63,9 +63,16 @@ inngest list --function-name "system.jobs"
 inngest list --function "process-payment"
 inngest list --function "6cc723a1-30f3-4e16-bcaa-ae40619f9770"
 
+# Time range filtering (status filters default to last 24 hours)
+inngest list --status Failed                    # Last 24 hours
+inngest list --status Failed --hours 48         # Last 48 hours  
+inngest list --hours 6                          # Last 6 hours (any status)
+inngest list --after "2024-01-01T00:00:00Z"     # Since specific time
+inngest list --before "2024-01-01T23:59:59Z"    # Before specific time
+
 # Combine filters
 inngest list --status Running --function-name "send-email" --limit 50
-inngest list --status Failed --function-name "embeddings" --limit 10
+inngest list --status Failed --function-name "embeddings" --hours 72
 
 # Get all results (may take time)
 inngest list --all
@@ -149,6 +156,34 @@ The CLI automatically extracts and displays readable function names from Inngest
 - `--function-name`: Filter by function name with partial matching (recommended)
 - `--function`: Filter by function ID (UUID) or function name (legacy support)
 
+## Time Range Filtering
+
+Control which time period to search for runs. This is especially important when looking for failed runs or specific incidents.
+
+**Default Behavior**:
+- When filtering by status (e.g., `--status Failed`): searches last 24 hours
+- Without status filtering: searches recent events only
+
+**Time Range Options**:
+- `--hours N`: Look back N hours from now
+- `--after TIMESTAMP`: Show runs after specific time (ISO 8601 format)
+- `--before TIMESTAMP`: Show runs before specific time (ISO 8601 format)
+
+**Examples**:
+```bash
+# Find failed runs in last 24 hours (default when using --status)
+inngest list --status Failed
+
+# Search last 3 days for any cancelled runs
+inngest list --status Cancelled --hours 72
+
+# Look for runs since yesterday morning  
+inngest list --after "2024-01-01T09:00:00Z"
+
+# Find runs in a specific time window
+inngest list --after "2024-01-01T09:00:00Z" --before "2024-01-01T17:00:00Z"
+```
+
 ## Environment Variables
 
 - `INNGEST_SIGNING_KEY` - Your Inngest signing key (required)
@@ -174,8 +209,15 @@ inngest watch --event <EVENT_ID> --interval 30
 ### Monitor Failed Jobs
 
 ```bash
-# List all failed runs
+# List failed runs from last 24 hours (default)
 inngest list --status Failed
+
+# Find failed runs from last week for incident analysis
+inngest list --status Failed --hours 168
+
+# Check for failed runs in specific function during incident window
+inngest list --status Failed --function-name "payment-processor" \
+  --after "2024-01-15T14:00:00Z" --before "2024-01-15T16:00:00Z"
 
 # List failed runs with readable function names
 # (shows: sweetistics-system.jobs.sweeper instead of UUID)

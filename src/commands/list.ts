@@ -27,6 +27,19 @@ export function createListCommand(): Command {
     )
     .option('-f, --function <functionId>', 'Filter by function ID or function name (supports partial matches)')
     .option('-n, --function-name <name>', 'Filter by function name (partial match, e.g., "embeddings/reconcile")')
+    .option('--after <timestamp>', 'Show runs started after this timestamp (ISO 8601 format)')
+    .option('--before <timestamp>', 'Show runs started before this timestamp (ISO 8601 format)')  
+    .option(
+      '--hours <hours>',
+      'Show runs from the last N hours (default: 24 when filtering by status)',
+      value => {
+        const num = parseInt(value, 10);
+        if (Number.isNaN(num) || num <= 0) {
+          throw new Error('Hours must be a positive number');
+        }
+        return num;
+      }
+    )
     .option(
       '-l, --limit <number>',
       'Limit number of results (default: 20)',
@@ -61,6 +74,9 @@ export function createListCommand(): Command {
             function_id: functionFilter,
             cursor,
             limit: options.all ? 100 : options.limit,
+            after: options.after,
+            before: options.before,
+            hours: options.hours,
           });
 
           allRuns = allRuns.concat(response.data);
