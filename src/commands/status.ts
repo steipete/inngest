@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { InngestClient } from '../api/client.js';
 import type { InngestRun } from '../api/types.js';
-import { getConfig, validateEventId, validateRunId, type Environment } from '../utils/config.js';
+import { type Environment, getConfig, validateEventId, validateRunId } from '../utils/config.js';
 import { displayError, displayRunDetails, displayRunsTable } from '../utils/display.js';
 
 export function createStatusCommand(): Command {

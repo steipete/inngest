@@ -55,10 +55,14 @@ export function getConfig(options: ConfigOptions = {}): ApiConfig {
 
   // Determine the base URL based on environment
   let baseUrl: string;
-  
+
   if (options.env === 'dev') {
     // Dev environment - use local dev server
-    const devPort = options.devPort || (envResult.data.INNGEST_DEV_SERVER_PORT ? parseInt(envResult.data.INNGEST_DEV_SERVER_PORT) : 8288);
+    const devPort =
+      options.devPort ||
+      (envResult.data.INNGEST_DEV_SERVER_PORT
+        ? parseInt(envResult.data.INNGEST_DEV_SERVER_PORT, 10)
+        : 8288);
     baseUrl = envResult.data.INNGEST_DEV_SERVER_URL || `http://localhost:${devPort}`;
   } else {
     // Production environment (default)

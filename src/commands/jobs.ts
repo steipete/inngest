@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { InngestClient } from '../api/client.js';
-import { getConfig, validateRunId, type Environment } from '../utils/config.js';
+import { type Environment, getConfig, validateRunId } from '../utils/config.js';
 import { displayError, displayJobsTable } from '../utils/display.js';
 
 export function createJobsCommand(): Command {
