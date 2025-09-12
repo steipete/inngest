@@ -59,6 +59,7 @@ inngest list --env dev --dev-port 8080 --status Failed
 #### Global Options
 - `--env <environment>` - Switch between `prod` (default) and `dev`
 - `--dev-port <port>` - Override dev server port (default: 8288)
+- `-V, --version` - Display version number
 
 ## Usage
 
@@ -115,6 +116,9 @@ inngest list --status Failed --details
 
 # Get detailed view of last 10 failed runs with complete context
 inngest list --status Failed --limit 10 --details --hours 72
+
+# Show debug information during execution (performance monitoring)
+inngest list --status Failed --details --verbose
 
 # Paginate through results
 inngest list --cursor "next-page-cursor"
@@ -177,6 +181,35 @@ inngest jobs HATTAQ53E8YJ2T
 # Check the status of a bulk cancellation
 inngest cancellation-status 01HWAVJ8ASQ5C3FXV32JS9DV9Q
 ```
+
+## Debug and Performance Monitoring
+
+### Verbose Output
+
+Use the `--verbose` or `-v` flag to see detailed debug information during command execution:
+
+```bash
+# See performance metrics and API call details
+inngest list --status Failed --details --verbose
+
+# Monitor search progress through time chunks
+inngest list --status Failed --hours 168 --verbose
+```
+
+**Debug information includes:**
+- API response metadata and timing
+- Parallel chunk processing progress
+- Pagination and search optimization details
+- Event filtering and early termination stats
+
+### Performance Features
+
+The CLI includes several performance optimizations:
+
+- **Parallel API requests**: Up to 6 concurrent time-based chunks
+- **Early termination**: Stops fetching when enough results found
+- **Smart result limiting**: Requests optimal amount for filtering
+- **Efficient pagination**: Uses cursors when available
 
 ## Available Statuses
 
