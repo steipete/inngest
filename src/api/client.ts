@@ -12,6 +12,8 @@ import {
   CancellationStatusSchema,
   type EventRunsResponse,
   EventRunsResponseSchema,
+  type InngestEvent,
+  InngestEventSchema,
   type InngestJob,
   type InngestRun,
   InngestRunSchema,
@@ -23,6 +25,7 @@ import {
 
 export class InngestClient {
   private client: AxiosInstance;
+  private inputDataCache: Map<string, any> = new Map(); // runId -> input data
 
   constructor(config: ApiConfig) {
     // Validate config using Zod
@@ -128,6 +131,36 @@ export class InngestClient {
     return this.validateResponse<InngestRun>(response.data.data, InngestRunSchema);
   }
 
+  async findRunByPartialId(partialId: string): Promise<InngestRun | null> {
+    // If it looks like a full ULID (26 characters), use it directly
+    if (partialId.length === 26 && /^[0-9A-HJKMNP-TV-Z]{26}$/.test(partialId)) {
+      try {
+        return await this.getRun(partialId);
+      } catch {
+        return null;
+      }
+    }
+
+    // Search recent events for runs with matching partial ID
+    try {
+      const events = await this.listEvents({ limit: 200 });
+      
+      for (const event of events.data) {
+        if (event.data?.run_id && event.data.run_id.endsWith(partialId)) {
+          try {
+            return await this.getRun(event.data.run_id);
+          } catch {
+            continue;
+          }
+        }
+      }
+      
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   async listEvents(options: { limit?: number; cursor?: string; name?: string } = {}): Promise<{ data: any[]; metadata: any }> {
     const params = new URLSearchParams();
     if (options.limit) params.append('limit', options.limit.toString());
@@ -136,6 +169,15 @@ export class InngestClient {
 
     const response = await this.client.get(`/v1/events?${params}`);
     return response.data;
+  }
+
+  async getEvent(eventId: string): Promise<InngestEvent | null> {
+    try {
+      const response = await this.client.get(`/v1/events/${eventId}`);
+      return this.validateResponse<InngestEvent>(response.data.data, InngestEventSchema);
+    } catch {
+      return null;
+    }
   }
 
   async getEventRuns(eventId: string): Promise<InngestRun[]> {
@@ -160,7 +202,7 @@ export class InngestClient {
   ): Promise<ListRunsResponse> {
     // Get events - use larger limit and broader time range when filtering by status
     const eventsParams = new URLSearchParams();
-    const eventLimit = options.status ? Math.max(200, (options.limit || 20) * 10) : (options.limit || 50);
+    const eventLimit = options.status ? 100 : (options.limit || 50); // Use API maximum of 100 for status searches
     eventsParams.append('limit', eventLimit.toString());
     if (options.cursor) eventsParams.append('cursor', options.cursor);
     
@@ -174,28 +216,49 @@ export class InngestClient {
       hoursAgo.setHours(hoursAgo.getHours() - options.hours);
       eventsParams.append('received_after', hoursAgo.toISOString());
     } else if (options.status) {
-      // Default: look back 24 hours when filtering by status
-      const dayAgo = new Date();
-      dayAgo.setHours(dayAgo.getHours() - 24);
-      eventsParams.append('received_after', dayAgo.toISOString());
+      // When only status is specified, look back much further to find failed/cancelled runs
+      const monthsAgo = new Date();
+      monthsAgo.setMonth(monthsAgo.getMonth() - 6); // Look back 6 months
+      eventsParams.append('received_after', monthsAgo.toISOString());
+      console.log(`Debug: Status search going back to: ${monthsAgo.toISOString()}`);
     }
     
     // Note: We don't pre-filter events by status because event names don't always 
     // match final run status (e.g., failed runs can be later cancelled)
     // Instead, we filter by status after fetching the actual run details
 
-    const eventsResponse = await this.client.get(`/v1/events?${eventsParams}`);
-    const events = eventsResponse.data.data;
+    // Implement streaming search - process first page immediately, then continue fetching
+    const initialEventsResponse = await this.client.get(`/v1/events?${eventsParams}`);
+    let events = initialEventsResponse.data.data || [];
+    console.log(`Debug: Initial page loaded: ${events.length} events`);
+    console.log(`Debug: Response metadata:`, JSON.stringify(initialEventsResponse.data.metadata, null, 2));
+    
+    // If filtering by status, try time-based chunking to get more historical data
+    if (options.status) {
+      const timeBasedEvents = await this.fetchTimeBasedChunks(eventsParams, options);
+      events = events.concat(timeBasedEvents);
+      console.log(`Debug: Total events after time-based search: ${events.length}`);
+      
+      // Also try cursor-based pagination if available
+      if (events.length > 0) {
+        const additionalEvents = await this.fetchAdditionalPages(eventsParams, initialEventsResponse);
+        events = events.concat(additionalEvents);
+        console.log(`Debug: Total events after all pagination: ${events.length}`);
+      }
+    }
 
     // Get runs from events that have run_id and capture function names
     const runs: InngestRun[] = [];
     const seenRunIds = new Set<string>();
     const functionNames = new Map<string, string>(); // runId -> functionName
 
-    // First pass: collect function names from events
+    // First pass: collect function names and event data from events
+    const eventDataMap = new Map<string, any>(); // runId -> original event data
     for (const event of events) {
       if (event.data?.run_id && event.data?.function_id) {
         functionNames.set(event.data.run_id, event.data.function_id);
+        // Store the full event for later use - this contains the input data
+        eventDataMap.set(event.data.run_id, event);
       }
     }
 
@@ -207,10 +270,29 @@ export class InngestClient {
           try {
             const run = await this.getRun(runId);
             
-            // Add function name from event data
+            // Add function name and event data
             const functionName = functionNames.get(runId);
-            const enrichedRun = { ...run, function_name: functionName };
-            
+            const eventData = eventDataMap.get(runId);
+            // Extract the actual input data from the event structure
+            let inputData = null;
+            if (eventData?.data && typeof eventData.data === 'object') {
+              // The event data contains an 'event' object with the actual input data
+              const eventInfo = eventData.data.event || eventData.data.events?.[0];
+              if (eventInfo && eventInfo.data) {
+                inputData = eventInfo.data;
+              }
+            }
+
+            // Cache the input data for this run
+            if (inputData) {
+              this.inputDataCache.set(runId, inputData);
+            }
+
+            const enrichedRun = { 
+              ...run, 
+              function_name: functionName
+            };
+
             // Apply filters (check both function_id and function_name)
             if (options.status && enrichedRun.status !== options.status) continue;
             if (options.function_id) {
@@ -262,5 +344,104 @@ export class InngestClient {
   async getCancellationStatus(cancellationId: string): Promise<CancellationStatus> {
     const response = await this.client.get(`/v1/cancellations/${cancellationId}`);
     return this.validateResponse<CancellationStatus>(response.data, CancellationStatusSchema);
+  }
+
+  getInputDataForRun(runId: string): any | null {
+    return this.inputDataCache.get(runId) || null;
+  }
+
+  private async fetchAdditionalPages(
+    baseParams: URLSearchParams, 
+    initialResponse: any
+  ): Promise<any[]> {
+    const additionalEvents: any[] = [];
+    let currentCursor = initialResponse.data.metadata?.next_cursor;
+    let pagesLoaded = 0;
+    const maxAdditionalPages = 20; // Fetch up to 20 additional pages
+    
+    while (currentCursor && pagesLoaded < maxAdditionalPages) {
+      const pageParams = new URLSearchParams(baseParams);
+      pageParams.set('cursor', currentCursor);
+      
+      console.log(`Debug: Fetching additional page ${pagesLoaded + 2}...`);
+      
+      try {
+        const eventsResponse = await this.client.get(`/v1/events?${pageParams}`);
+        const pageEvents = eventsResponse.data.data;
+        
+        if (!pageEvents || pageEvents.length === 0) {
+          console.log(`Debug: No more events in page ${pagesLoaded + 2}`);
+          break;
+        }
+        
+        additionalEvents.push(...pageEvents);
+        pagesLoaded++;
+        console.log(`Debug: Page ${pagesLoaded + 1} loaded: ${pageEvents.length} events (${additionalEvents.length} total additional)`);
+        
+        // Check for next cursor
+        const nextCursor = eventsResponse.data.metadata?.next_cursor;
+        if (nextCursor && nextCursor !== currentCursor) {
+          currentCursor = nextCursor;
+        } else {
+          console.log(`Debug: Reached end of pagination after ${pagesLoaded + 1} pages`);
+          break;
+        }
+      } catch (error) {
+        console.log(`Debug: Error fetching page ${pagesLoaded + 2}, stopping pagination`);
+        break;
+      }
+    }
+    
+    return additionalEvents;
+  }
+
+  private async fetchTimeBasedChunks(
+    baseParams: URLSearchParams,
+    options: { hours?: number; status?: string }
+  ): Promise<any[]> {
+    const allEvents: any[] = [];
+    
+    // Determine time range to search
+    const totalHours = options.hours || 168; // Default to 1 week
+    const chunkHours = 24; // Search in 24-hour chunks
+    const chunks = Math.ceil(totalHours / chunkHours);
+    
+    console.log(`Debug: Searching ${totalHours} hours in ${chunks} chunks of ${chunkHours} hours each`);
+    
+    for (let i = 1; i < chunks; i++) { // Start from 1 since we already got the first chunk
+      const endHours = i * chunkHours;
+      const startHours = Math.min((i + 1) * chunkHours, totalHours);
+      
+      const endTime = new Date();
+      endTime.setHours(endTime.getHours() - endHours);
+      
+      const startTime = new Date();
+      startTime.setHours(startTime.getHours() - startHours);
+      
+      const chunkParams = new URLSearchParams(baseParams);
+      chunkParams.set('received_after', startTime.toISOString());
+      chunkParams.set('received_before', endTime.toISOString());
+      
+      console.log(`Debug: Chunk ${i + 1}: ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      
+      try {
+        const response = await this.client.get(`/v1/events?${chunkParams}`);
+        const chunkEvents = response.data.data || [];
+        console.log(`Debug: Chunk ${i + 1} returned ${chunkEvents.length} events`);
+        
+        if (chunkEvents.length > 0) {
+          allEvents.push(...chunkEvents);
+        }
+        
+        // Add a small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        console.log(`Debug: Error fetching chunk ${i + 1}, skipping`);
+        continue;
+      }
+    }
+    
+    return allEvents;
   }
 }

@@ -89,6 +89,11 @@ export const ApiConfigSchema = z.object({
 export type InngestRun = z.infer<typeof InngestRunSchema>;
 export type InngestEvent = z.infer<typeof InngestEventSchema>;
 export type InngestJob = z.infer<typeof InngestJobSchema>;
+
+// Extended run type with event data for detailed display
+export type InngestRunWithEvent = InngestRun & {
+  event_data?: any; // The original event data that triggered this run
+};
 export type ListRunsResponse = z.infer<typeof ListRunsResponseSchema>;
 export type EventRunsResponse = z.infer<typeof EventRunsResponseSchema>;
 export type JobsResponse = z.infer<typeof JobsResponseSchema>;

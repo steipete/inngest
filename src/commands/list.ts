@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { InngestClient } from '../api/client.js';
 import type { InngestRun } from '../api/types.js';
 import { getConfig } from '../utils/config.js';
-import { displayError, displayInfo, displayRunsTable } from '../utils/display.js';
+import { displayError, displayInfo, displayRunDetails, displayRunsTable } from '../utils/display.js';
 
 export function createListCommand(): Command {
   const command = new Command('list')
@@ -54,6 +54,7 @@ export function createListCommand(): Command {
     )
     .option('--cursor <cursor>', 'Pagination cursor for next page')
     .option('--all', 'Fetch all results (ignores limit, may take time)')
+    .option('--details', 'Show full details for each run instead of table format')
     .action(async options => {
       try {
         const config = getConfig();
@@ -95,7 +96,17 @@ export function createListCommand(): Command {
           }
         }
 
-        displayRunsTable(allRuns);
+        if (options.details) {
+          // Show full details for each run
+          for (let i = 0; i < allRuns.length; i++) {
+            const run = allRuns[i];
+            if (i > 0) console.log('\n'); // Add spacing between runs
+            await displayRunDetails(run, client);
+          }
+        } else {
+          // Show table format
+          displayRunsTable(allRuns);
+        }
 
         if (!options.all && hasMore) {
           console.log(
