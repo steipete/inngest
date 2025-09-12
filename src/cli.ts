@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name('inngest')
   .description('CLI for managing Inngest jobs - watch, cancel, filter by status')
-  .version('1.0.0')
+  .version('0.9.0')
   .option(
     '--env <environment>',
     'Environment to connect to',
@@ -28,17 +28,13 @@ program
     },
     'prod'
   )
-  .option(
-    '--dev-port <port>',
-    'Port for dev server (default: 8288)',
-    value => {
-      const port = parseInt(value, 10);
-      if (Number.isNaN(port) || port < 1 || port > 65535) {
-        throw new Error('Dev port must be a valid port number (1-65535)');
-      }
-      return port;
+  .option('--dev-port <port>', 'Port for dev server (default: 8288)', value => {
+    const port = parseInt(value, 10);
+    if (Number.isNaN(port) || port < 1 || port > 65535) {
+      throw new Error('Dev port must be a valid port number (1-65535)');
     }
-  )
+    return port;
+  })
   .configureOutput({
     writeErr: (str: string) => process.stderr.write(chalk.red(str)),
   });

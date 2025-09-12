@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { InngestClient } from '../api/client.js';
 import type { InngestRun } from '../api/types.js';
-import { getConfig, type Environment } from '../utils/config.js';
+import { type Environment, getConfig } from '../utils/config.js';
 import {
   displayError,
   displayInfo,
@@ -70,6 +70,7 @@ export function createListCommand(): Command {
     .option('--cursor <cursor>', 'Pagination cursor for next page')
     .option('--all', 'Fetch all results (ignores limit, may take time)')
     .option('--details', 'Show full details for each run instead of table format')
+    .option('-v, --verbose', 'Show detailed debug information during execution')
     .action(async (options, command) => {
       try {
         const globalOpts = command.parent?.opts() || {};
@@ -77,7 +78,7 @@ export function createListCommand(): Command {
           env: globalOpts.env as Environment,
           devPort: globalOpts.devPort,
         });
-        const client = new InngestClient(config);
+        const client = new InngestClient(config, { verbose: options.verbose });
 
         let allRuns: InngestRun[] = [];
         let cursor = options.cursor;

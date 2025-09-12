@@ -26,8 +26,11 @@ import {
 export class InngestClient {
   private client: AxiosInstance;
   private inputDataCache: Map<string, unknown> = new Map(); // runId -> input data
+  private verbose: boolean = false;
 
-  constructor(config: ApiConfig) {
+  constructor(config: ApiConfig, options: { verbose?: boolean } = {}) {
+    this.verbose = options.verbose || false;
+    
     // Validate config using Zod
     const validatedConfig = ApiConfigSchema.parse(config);
 
@@ -110,6 +113,12 @@ export class InngestClient {
         );
       }
     );
+  }
+
+  private debug(message: string): void {
+    if (this.verbose) {
+      console.log(`Debug: ${message}`);
+    }
   }
 
   private validateResponse<T>(data: unknown, schema: z.ZodType<T>): T {
@@ -224,7 +233,7 @@ export class InngestClient {
       const monthsAgo = new Date();
       monthsAgo.setMonth(monthsAgo.getMonth() - 6); // Look back 6 months
       eventsParams.append('received_after', monthsAgo.toISOString());
-      console.log(`Debug: Status search going back to: ${monthsAgo.toISOString()}`);
+      this.debug(`Status search going back to: ${monthsAgo.toISOString()}`);
     }
 
     // Note: We don't pre-filter events by status because event names don't always
@@ -234,10 +243,9 @@ export class InngestClient {
     // Implement streaming search - process first page immediately, then continue fetching
     const initialEventsResponse = await this.client.get(`/v1/events?${eventsParams}`);
     let events = initialEventsResponse.data.data || [];
-    console.log(`Debug: Initial page loaded: ${events.length} events`);
-    console.log(
-      `Debug: Response metadata:`,
-      JSON.stringify(initialEventsResponse.data.metadata, null, 2)
+    this.debug(`Initial page loaded: ${events.length} events`);
+    this.debug(
+      `Response metadata: ${JSON.stringify(initialEventsResponse.data.metadata, null, 2)}`
     );
 
     // If filtering by status, try time-based chunking to get more historical data
@@ -247,7 +255,7 @@ export class InngestClient {
         maxResults: Math.max((options.limit || 20) * 5, 200), // Request 5x the limit to account for filtering
       });
       events = events.concat(timeBasedEvents);
-      console.log(`Debug: Total events after time-based search: ${events.length}`);
+      this.debug(`Total events after time-based search: ${events.length}`);
 
       // Also try cursor-based pagination if available
       if (events.length > 0) {
@@ -256,7 +264,7 @@ export class InngestClient {
           initialEventsResponse
         );
         events = events.concat(additionalEvents);
-        console.log(`Debug: Total events after all pagination: ${events.length}`);
+        this.debug(`Total events after all pagination: ${events.length}`);
       }
     }
 
@@ -394,21 +402,21 @@ export class InngestClient {
       const pageParams = new URLSearchParams(baseParams);
       pageParams.set('cursor', currentCursor);
 
-      console.log(`Debug: Fetching additional page ${pagesLoaded + 2}...`);
+      this.debug(`Fetching additional page ${pagesLoaded + 2}...`);
 
       try {
         const eventsResponse = await this.client.get(`/v1/events?${pageParams}`);
         const pageEvents = eventsResponse.data.data;
 
         if (!pageEvents || pageEvents.length === 0) {
-          console.log(`Debug: No more events in page ${pagesLoaded + 2}`);
+          this.debug(`No more events in page ${pagesLoaded + 2}`);
           break;
         }
 
         additionalEvents.push(...pageEvents);
         pagesLoaded++;
-        console.log(
-          `Debug: Page ${pagesLoaded + 1} loaded: ${pageEvents.length} events (${additionalEvents.length} total additional)`
+        this.debug(
+          `Page ${pagesLoaded + 1} loaded: ${pageEvents.length} events (${additionalEvents.length} total additional)`
         );
 
         // Check for next cursor
@@ -416,11 +424,11 @@ export class InngestClient {
         if (nextCursor && nextCursor !== currentCursor) {
           currentCursor = nextCursor;
         } else {
-          console.log(`Debug: Reached end of pagination after ${pagesLoaded + 1} pages`);
+          this.debug(`Reached end of pagination after ${pagesLoaded + 1} pages`);
           break;
         }
       } catch (_error) {
-        console.log(`Debug: Error fetching page ${pagesLoaded + 2}, stopping pagination`);
+        this.debug(`Error fetching page ${pagesLoaded + 2}, stopping pagination`);
         break;
       }
     }
@@ -440,13 +448,14 @@ export class InngestClient {
     const chunks = Math.ceil(totalHours / chunkHours);
     const maxResults = options.maxResults || 1000;
 
-    console.log(
-      `Debug: Searching ${totalHours} hours in ${chunks} chunks of ${chunkHours} hours each (parallel)`
+    this.debug(
+      `Searching ${totalHours} hours in ${chunks} chunks of ${chunkHours} hours each (parallel)`
     );
 
     // Create all chunk promises in parallel
     const chunkPromises = [];
-    for (let i = 1; i < chunks && i <= 6; i++) { // Limit to 6 parallel requests to avoid overwhelming the API
+    for (let i = 1; i < chunks && i <= 6; i++) {
+      // Limit to 6 parallel requests to avoid overwhelming the API
       // Start from 1 since we already got the first chunk
       const endHours = i * chunkHours;
       const startHours = Math.min((i + 1) * chunkHours, totalHours);
@@ -461,10 +470,11 @@ export class InngestClient {
       chunkParams.set('received_after', startTime.toISOString());
       chunkParams.set('received_before', endTime.toISOString());
 
-      console.log(`Debug: Chunk ${i + 1}: ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      this.debug(`Chunk ${i + 1}: ${startTime.toISOString()} to ${endTime.toISOString()}`);
 
       chunkPromises.push(
-        this.client.get(`/v1/events?${chunkParams}`)
+        this.client
+          .get(`/v1/events?${chunkParams}`)
           .then(response => ({
             chunkIndex: i + 1,
             events: response.data.data || [],
@@ -479,24 +489,26 @@ export class InngestClient {
 
     // Execute all chunks in parallel
     const results = await Promise.all(chunkPromises);
-    
+
     // Sort results by chunk index to maintain chronological order
     results.sort((a, b) => a.chunkIndex - b.chunkIndex);
 
     for (const result of results) {
       if ('error' in result) {
-        console.log(`Debug: Error fetching chunk ${result.chunkIndex}, skipping`);
+        this.debug(`Error fetching chunk ${result.chunkIndex}, skipping`);
         continue;
       }
-      
-      console.log(`Debug: Chunk ${result.chunkIndex} returned ${result.events.length} events`);
-      
+
+      this.debug(`Chunk ${result.chunkIndex} returned ${result.events.length} events`);
+
       if (result.events.length > 0) {
         allEvents.push(...result.events);
-        
+
         // Early termination if we have enough events
         if (allEvents.length >= maxResults) {
-          console.log(`Debug: Early termination after ${allEvents.length} events (limit: ${maxResults})`);
+          this.debug(
+            `Early termination after ${allEvents.length} events (limit: ${maxResults})`
+          );
           break;
         }
       }
