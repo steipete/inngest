@@ -1,0 +1,61 @@
+{
+  "name": "@steipete/inngest",
+  "version": "1.0.0",
+  "description": "CLI for managing Inngest jobs - watch, cancel, filter by status",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "inngest": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "check": "npm run lint && npm run test && npm run build",
+    "prepublishOnly": "npm run check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/steipete/inngest.git"
+  },
+  "keywords": [
+    "inngest",
+    "cli",
+    "jobs",
+    "workflow",
+    "monitoring"
+  ],
+  "author": "Peter Steinberger",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/steipete/inngest/issues"
+  },
+  "homepage": "https://github.com/steipete/inngest#readme",
+  "files": [
+    "dist/**/*"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@biomejs/biome": "^2.2.4",
+    "axios": "^1.12.0",
+    "chalk": "^5.6.2",
+    "cli-table3": "^0.6.5",
+    "commander": "^14.0.1",
+    "dotenv": "^17.2.2",
+    "ora": "^8.2.0",
+    "vitest": "^3.2.4",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "typescript": "^5.9.2"
+  }
+}
