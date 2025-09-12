@@ -21,7 +21,8 @@ export function createListCommand(): Command {
         return normalizedStatus;
       }
     )
-    .option('-f, --function <functionId>', 'Filter by function ID')
+    .option('-f, --function <functionId>', 'Filter by function ID or function name (supports partial matches)')
+    .option('-n, --function-name <name>', 'Filter by function name (partial match, e.g., "embeddings/reconcile")')
     .option(
       '-l, --limit <number>',
       'Limit number of results (default: 20)',
@@ -45,14 +46,15 @@ export function createListCommand(): Command {
         let cursor = options.cursor;
         let hasMore = true;
 
+        const functionFilter = options.function || options.functionName;
         displayInfo(
-          `Fetching runs${options.status ? ` with status: ${options.status}` : ''}${options.function ? ` for function: ${options.function}` : ''}...`
+          `Fetching runs${options.status ? ` with status: ${options.status}` : ''}${functionFilter ? ` for function: ${functionFilter}` : ''}...`
         );
 
         while (hasMore) {
           const response = await client.listRuns({
             status: options.status,
-            function_id: options.function,
+            function_id: functionFilter,
             cursor,
             limit: options.all ? 100 : options.limit,
           });

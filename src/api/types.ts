@@ -11,6 +11,7 @@ export const InngestRunSchema = z.object({
   output: z.unknown().optional(),
   event_id: z.string().optional(),
   function_id: z.string().optional(),
+  function_name: z.string().optional(),
   function_version: z.number().int().nonnegative().optional(),
 });
 

@@ -62,7 +62,7 @@ export function displayRunsTable(runs: InngestRun[]): void {
     table.push([
       run.run_id.slice(-12), // Show last 12 characters
       formatStatus(run.status),
-      run.function_id || 'N/A',
+      run.function_name || run.function_id || 'N/A',
       formatTimestamp(run.run_started_at),
       formatDuration(run.run_started_at, run.ended_at),
     ]);

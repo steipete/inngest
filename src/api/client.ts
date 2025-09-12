@@ -158,9 +158,17 @@ export class InngestClient {
     const eventsResponse = await this.client.get(`/v1/events?${eventsParams}`);
     const events = eventsResponse.data.data;
 
-    // Get runs from events that have run_id
+    // Get runs from events that have run_id and capture function names
     const runs: InngestRun[] = [];
     const seenRunIds = new Set<string>();
+    const functionNames = new Map<string, string>(); // runId -> functionName
+
+    // First pass: collect function names from events
+    for (const event of events) {
+      if (event.data?.run_id && event.data?.function_id) {
+        functionNames.set(event.data.run_id, event.data.function_id);
+      }
+    }
 
     for (const event of events) {
       if (event.data?.run_id) {
@@ -170,11 +178,19 @@ export class InngestClient {
           try {
             const run = await this.getRun(runId);
             
-            // Apply filters
-            if (options.status && run.status !== options.status) continue;
-            if (options.function_id && run.function_id !== options.function_id) continue;
+            // Add function name from event data
+            const functionName = functionNames.get(runId);
+            const enrichedRun = { ...run, function_name: functionName };
             
-            runs.push(run);
+            // Apply filters (check both function_id and function_name)
+            if (options.status && enrichedRun.status !== options.status) continue;
+            if (options.function_id) {
+              const matchesFunctionId = enrichedRun.function_id === options.function_id;
+              const matchesFunctionName = enrichedRun.function_name?.includes(options.function_id);
+              if (!matchesFunctionId && !matchesFunctionName) continue;
+            }
+            
+            runs.push(enrichedRun);
           } catch (error) {
             // Skip runs that can't be fetched
             continue;
