@@ -1,6 +1,6 @@
-# @steipete/inngest
+# Inngest CLI
 
-A powerful CLI for managing Inngest jobs with support for watching, canceling, and filtering by status.
+A powerful CLI for managing [Inngest](https://inngest.com) jobs with support for watching, canceling, and filtering by status.
 
 ## Features
 
@@ -9,6 +9,7 @@ A powerful CLI for managing Inngest jobs with support for watching, canceling, a
 - **Watch runs** in real-time with configurable polling intervals and timeouts
 - **Cancel runs** individually or in bulk with conditional expressions and dry-run mode
 - **View job details** for step-by-step execution analysis and debugging
+- **Complete debugging context** with input data and output for failed runs
 - **Rich terminal output** with colors, tables, and progress indicators
 - **Comprehensive error handling** with actionable troubleshooting guidance
 - **Runtime validation** using Zod schemas for type safety
@@ -35,8 +36,11 @@ Get your signing key from: https://app.inngest.com/env/production/manage/signing
 ### Check Run Status
 
 ```bash
-# Get status for a specific run
-inngest status --run 01HWAVJ8ASQ5C3FXV32JS9DV9Q
+# Get status for a specific run (full ID)
+inngest status --run 01K4ZAM6W753HATTAQ53E8YJ2T
+
+# Get status using partial ID from table (12+ characters)  
+inngest status --run HATTAQ53E8YJ2T
 
 # Get status for all runs of an event
 inngest status --event 01HWAVEB858VPPX47Z65GR6P6R
@@ -76,6 +80,12 @@ inngest list --status Failed --function-name "embeddings" --hours 72
 
 # Get all results (may take time)
 inngest list --all
+
+# Show full details instead of table format (includes input data and output)
+inngest list --status Failed --details
+
+# Get detailed view of last 10 failed runs with complete context
+inngest list --status Failed --limit 10 --details --hours 72
 
 # Paginate through results
 inngest list --cursor "next-page-cursor"
@@ -125,8 +135,11 @@ inngest cancel --app-id "my-app" --function "send-email" --dry-run
 ### View Job Details
 
 ```bash
-# Get detailed job information for a run
-inngest jobs 01HWAVJ8ASQ5C3FXV32JS9DV9Q
+# Get detailed job information for a run (full ID)
+inngest jobs 01K4ZAM6W753HATTAQ53E8YJ2T
+
+# Get job details using partial ID from table
+inngest jobs HATTAQ53E8YJ2T
 ```
 
 ### Check Cancellation Status
@@ -222,6 +235,12 @@ inngest list --status Failed --function-name "payment-processor" \
 # List failed runs with readable function names
 # (shows: sweetistics-system.jobs.sweeper instead of UUID)
 inngest list --status Failed --limit 10
+
+# Get detailed view of failed runs with input data and error information
+inngest list --status Failed --details
+
+# Analyze specific failed runs with full context (input + output)
+inngest list --status Failed --function-name "payment-processor" --details --limit 5
 ```
 
 ### Bulk Cleanup
