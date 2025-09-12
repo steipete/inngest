@@ -43,7 +43,7 @@ inngest list --status Failed
 
 #### Development Environment
 ```bash
-# Uses local dev server at http://localhost:3000
+# Uses local dev server at http://localhost:8288
 inngest list --env dev --status Failed
 
 # Custom dev server port
@@ -58,7 +58,7 @@ inngest list --env dev --dev-port 8080 --status Failed
 
 #### Global Options
 - `--env <environment>` - Switch between `prod` (default) and `dev`
-- `--dev-port <port>` - Override dev server port (default: 3000)
+- `--dev-port <port>` - Override dev server port (default: 8288)
 
 ## Usage
 

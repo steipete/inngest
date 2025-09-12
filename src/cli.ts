@@ -30,7 +30,7 @@ program
   )
   .option(
     '--dev-port <port>',
-    'Port for dev server (default: 3000)',
+    'Port for dev server (default: 8288)',
     value => {
       const port = parseInt(value, 10);
       if (Number.isNaN(port) || port < 1 || port > 65535) {
