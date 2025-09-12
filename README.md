@@ -4,12 +4,15 @@ A powerful CLI for managing Inngest jobs with support for watching, canceling, a
 
 ## Features
 
-- 🔍 **Query run status** by run ID or event ID
-- 📋 **List runs** with filtering by status, function, and pagination
-- 👁️ **Watch runs** in real-time with live updates
-- ❌ **Cancel runs** individually or in bulk with conditional expressions
-- 🔧 **View job details** for step-by-step execution analysis
-- 🎨 **Rich terminal output** with colors and formatting
+- **Query run status** by run ID or event ID with detailed output
+- **List runs** with filtering by status, function, and pagination support
+- **Watch runs** in real-time with configurable polling intervals and timeouts
+- **Cancel runs** individually or in bulk with conditional expressions and dry-run mode
+- **View job details** for step-by-step execution analysis and debugging
+- **Rich terminal output** with colors, tables, and progress indicators
+- **Comprehensive error handling** with actionable troubleshooting guidance
+- **Runtime validation** using Zod schemas for type safety
+- **Modern TypeScript implementation** with strict mode and full test coverage
 
 ## Installation
 
