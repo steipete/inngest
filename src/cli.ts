@@ -36,9 +36,21 @@ program.exitOverride(err => {
   if (err.code === 'commander.version') {
     process.exit(0);
   }
+  if (err.code === 'commander.optionMissingArgument') {
+    // Handle missing arguments with helpful messages
+    if (err.message.includes("option '-s, --status")) {
+      console.error(chalk.red('❌ Error: Status value is required\n'));
+      console.error('Available statuses: Running, Completed, Failed, Cancelled\n');
+      console.error('Examples:');
+      console.error('  inngest list --status Running');
+      console.error('  inngest list --status Failed');
+      process.exit(1);
+    }
+  }
   displayError(err);
   process.exit(1);
 });
+
 
 // Show help if no command provided
 if (process.argv.length <= 2) {

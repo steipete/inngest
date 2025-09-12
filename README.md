@@ -44,19 +44,28 @@ inngest status --event 01HWAVEB858VPPX47Z65GR6P6R
 
 ### List Runs with Filtering
 
+The CLI displays actual function names (e.g., `sweetistics-system.jobs.sweeper`) instead of UUIDs in the runs table for better readability.
+
 ```bash
-# List all runs (default limit: 20)
+# List all runs (default limit: 20) - shows function names
 inngest list
 
 # Filter by status
 inngest list --status Running
 inngest list --status Failed
 
-# Filter by function
+# Filter by function name (supports partial matching)
+inngest list --function-name "sweeper"
+inngest list --function-name "embeddings/reconcile"
+inngest list --function-name "system.jobs"
+
+# Filter by function ID or name using --function (legacy option)
 inngest list --function "process-payment"
+inngest list --function "6cc723a1-30f3-4e16-bcaa-ae40619f9770"
 
 # Combine filters
-inngest list --status Running --function "send-email" --limit 50
+inngest list --status Running --function-name "send-email" --limit 50
+inngest list --status Failed --function-name "embeddings" --limit 10
 
 # Get all results (may take time)
 inngest list --all
@@ -127,6 +136,19 @@ inngest cancellation-status 01HWAVJ8ASQ5C3FXV32JS9DV9Q
 - `Failed` - Job failed with an error
 - `Cancelled` - Job was cancelled
 
+## Function Name Filtering
+
+The CLI automatically extracts and displays readable function names from Inngest events instead of showing UUIDs. This makes it much easier to identify and filter runs.
+
+**Function Name Format**: Function names typically follow patterns like:
+- `sweetistics-system.jobs.sweeper`
+- `my-app.embeddings.reconcile`  
+- `user-service.notifications.send`
+
+**Filtering Options**:
+- `--function-name`: Filter by function name with partial matching (recommended)
+- `--function`: Filter by function ID (UUID) or function name (legacy support)
+
 ## Environment Variables
 
 - `INNGEST_SIGNING_KEY` - Your Inngest signing key (required)
@@ -134,14 +156,30 @@ inngest cancellation-status 01HWAVJ8ASQ5C3FXV32JS9DV9Q
 
 ## Examples
 
+### Monitor Function-Specific Jobs
+
+```bash
+# Monitor specific functions by name
+inngest list --function-name "sweeper"
+inngest list --function-name "embeddings/reconcile"
+
+# Monitor failed jobs for specific functions
+inngest list --status Failed --function-name "system.jobs"
+inngest list --status Failed --function-name "embeddings"
+
+# Watch for new failures in a specific function
+inngest watch --event <EVENT_ID> --interval 30
+```
+
 ### Monitor Failed Jobs
 
 ```bash
 # List all failed runs
 inngest list --status Failed
 
-# Watch for new failures in a specific function
-inngest watch --event <EVENT_ID> --interval 30
+# List failed runs with readable function names
+# (shows: sweetistics-system.jobs.sweeper instead of UUID)
+inngest list --status Failed --limit 10
 ```
 
 ### Bulk Cleanup
@@ -167,6 +205,25 @@ inngest jobs 01HWAVJ8ASQ5C3FXV32JS9DV9Q
 
 # Watch it live (if still running)
 inngest watch --run 01HWAVJ8ASQ5C3FXV32JS9DV9Q
+```
+
+### Example Output
+
+The CLI shows readable function names in a formatted table:
+
+```bash
+$ inngest list --limit 3
+ℹ Fetching runs...
+┌──────────────┬─────────────┬─────────────────────────────────┬───────────────────────┬──────────┐
+│ Run ID       │ Status      │ Function                        │ Started               │ Duration │
+├──────────────┼─────────────┼─────────────────────────────────┼───────────────────────┼──────────┤
+│ SG8GPCA7CATH │ ● Completed │ sweetistics-system.jobs.sweeper │ 9/12/2025, 5:25:00 PM │ 8.0s     │
+├──────────────┼─────────────┼─────────────────────────────────┼───────────────────────┼──────────┤
+│ 7N49HSG37BFW │ ● Completed │ sweetistics-system.jobs.sweeper │ 9/12/2025, 5:20:00 PM │ 12.3s    │
+├──────────────┼─────────────┼─────────────────────────────────┼───────────────────────┼──────────┤
+│ 4R0ET7SWCA4Z │ ● Cancelled │ sweetistics-system.jobs.sweeper │ 9/12/2025, 5:05:00 PM │ 13.3m    │
+└──────────────┴─────────────┴─────────────────────────────────┴───────────────────────┴──────────┘
+ℹ Total: 3 run(s)
 ```
 
 ## Testing

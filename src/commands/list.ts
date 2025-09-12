@@ -9,13 +9,17 @@ export function createListCommand(): Command {
     .description('List runs with optional filtering')
     .option(
       '-s, --status <status>',
-      'Filter by status (Running, Completed, Failed, Cancelled)',
+      'Filter by status. Available: Running, Completed, Failed, Cancelled',
       value => {
+        if (!value || value.trim() === '') {
+          throw new Error('Status value is required. Available statuses: Running, Completed, Failed, Cancelled');
+        }
+        
         const validStatuses = ['Running', 'Completed', 'Failed', 'Cancelled'];
         const normalizedStatus = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 
         if (!validStatuses.includes(normalizedStatus)) {
-          throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+          throw new Error(`Invalid status "${value}". Available statuses: ${validStatuses.join(', ')}`);
         }
 
         return normalizedStatus;
