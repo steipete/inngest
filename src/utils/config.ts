@@ -10,6 +10,20 @@ const EnvSchema = z.object({
 });
 
 export function getConfig(): ApiConfig {
+  // Check if signing key is set at all
+  if (!process.env.INNGEST_SIGNING_KEY) {
+    throw new Error(
+      '🔑 Missing INNGEST_SIGNING_KEY environment variable!\n\n' +
+        '📝 To set it:\n' +
+        '   export INNGEST_SIGNING_KEY="your-signing-key-here"\n\n' +
+        '🔗 Get your signing key from:\n' +
+        '   https://app.inngest.com/env/production/manage/signing-key\n\n' +
+        '💡 Example usage:\n' +
+        '   export INNGEST_SIGNING_KEY="signkey-prod-..."\n' +
+        '   inngest list --limit 5'
+    );
+  }
+
   const envResult = EnvSchema.safeParse({
     INNGEST_SIGNING_KEY: process.env.INNGEST_SIGNING_KEY,
     INNGEST_API_URL: process.env.INNGEST_API_URL,
@@ -18,8 +32,9 @@ export function getConfig(): ApiConfig {
   if (!envResult.success) {
     const errors = envResult.error.issues.map(issue => issue.message).join('\n');
     throw new Error(
-      `Environment validation failed:\n${errors}\n\n` +
-        'Get your signing key from: https://app.inngest.com/env/production/manage/signing-key'
+      `🚨 Environment validation failed:\n${errors}\n\n` +
+        '🔗 Get your signing key from:\n' +
+        '   https://app.inngest.com/env/production/manage/signing-key'
     );
   }
 

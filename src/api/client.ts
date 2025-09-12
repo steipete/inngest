@@ -41,28 +41,70 @@ export class InngestClient {
     this.client.interceptors.response.use(
       response => response,
       (error: AxiosError) => {
-        if (error.response?.data) {
-          try {
-            const apiError = ApiErrorSchema.parse(error.response.data);
-            throw new Error(`API Error: ${apiError.message || apiError.error}`);
-          } catch {
-            // If error response doesn't match schema, use raw error
-            const rawError = error.response.data as Record<string, unknown>;
-            const message =
-              typeof rawError?.message === 'string'
-                ? rawError.message
-                : typeof rawError?.error === 'string'
-                  ? rawError.error
-                  : `HTTP ${error.response.status}: ${error.response.statusText}`;
-            throw new Error(`API Error: ${message}`);
-          }
-        }
         if (error.response) {
+          // Handle specific HTTP errors with helpful guidance first
+          if (error.response.status === 404) {
+            throw new Error(
+              `🚫 API endpoint not found (404)\n\n` +
+                `📍 Endpoint: ${error.config?.url}\n\n` +
+                `🔍 This could mean:\n` +
+                `   • The API endpoint structure has changed\n` +
+                `   • Your signing key doesn't have access to this resource\n` +
+                `   • The API version (v1) might be incorrect\n\n` +
+                `💡 Troubleshooting:\n` +
+                `   1. Verify your signing key has the right permissions\n` +
+                `   2. Check the latest Inngest API documentation\n` +
+                `   3. Try a different API version or endpoint structure\n\n` +
+                `🔗 API Documentation: https://api-docs.inngest.com/`
+            );
+          } else if (error.response.status === 401) {
+            throw new Error(
+              `🔐 Authentication failed (401)\n\n` +
+                `❌ Your INNGEST_SIGNING_KEY appears to be invalid or expired.\n\n` +
+                `💡 To fix this:\n` +
+                `   1. Get a new signing key from: https://app.inngest.com/env/production/manage/signing-key\n` +
+                `   2. Update your environment variable:\n` +
+                `      export INNGEST_SIGNING_KEY="signkey-prod-..."`
+            );
+          } else if (error.response.status === 403) {
+            throw new Error(
+              `🚷 Access forbidden (403)\n\n` +
+                `❌ Your signing key doesn't have permission to access this resource.\n\n` +
+                `💡 Check that your key has the required scopes for this operation.`
+            );
+          }
+
+          // Try to parse structured error response for other status codes
+          if (error.response.data) {
+            try {
+              const apiError = ApiErrorSchema.parse(error.response.data);
+              throw new Error(`API Error: ${apiError.message || apiError.error}`);
+            } catch {
+              // If error response doesn't match schema, use raw error
+              const rawError = error.response.data as Record<string, unknown>;
+              const message =
+                typeof rawError?.message === 'string'
+                  ? rawError.message
+                  : typeof rawError?.error === 'string'
+                    ? rawError.error
+                    : `HTTP ${error.response.status}: ${error.response.statusText}`;
+              throw new Error(`API Error: ${message}`);
+            }
+          }
+
           throw new Error(
-            `HTTP Error: ${error.response.status} ${error.response.statusText} - ${error.config?.url}`
+            `🌐 HTTP Error: ${error.response.status} ${error.response.statusText}\n` +
+              `📍 URL: ${error.config?.url}`
           );
         }
-        throw new Error(`Network Error: ${error.message}`);
+        throw new Error(
+          `🌐 Network Error: ${error.message}\n\n` +
+            `💡 This could be due to:\n` +
+            `   • No internet connection\n` +
+            `   • DNS resolution issues\n` +
+            `   • Firewall blocking the request\n` +
+            `   • api.inngest.com is unreachable`
+        );
       }
     );
   }

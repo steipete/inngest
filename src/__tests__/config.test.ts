@@ -35,13 +35,13 @@ describe('Config Utils', () => {
     it('should throw error when signing key is missing', () => {
       delete process.env.INNGEST_SIGNING_KEY;
 
-      expect(() => getConfig()).toThrow(/Environment validation failed/);
+      expect(() => getConfig()).toThrow(/Missing INNGEST_SIGNING_KEY environment variable/);
     });
 
     it('should throw error when signing key is empty', () => {
       process.env.INNGEST_SIGNING_KEY = '';
 
-      expect(() => getConfig()).toThrow(/Environment validation failed/);
+      expect(() => getConfig()).toThrow(/Missing INNGEST_SIGNING_KEY environment variable/);
     });
 
     it('should throw error when base URL is invalid', () => {
