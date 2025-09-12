@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import Table from 'cli-table3';
-import type { InngestJob, InngestRun, InngestRunWithEvent } from '../api/types.js';
 import type { InngestClient } from '../api/client.js';
+import type { InngestJob, InngestRun, InngestRunWithEvent } from '../api/types.js';
 
 export function formatStatus(status: string): string {
   switch (status.toLowerCase()) {
@@ -72,20 +72,23 @@ export function displayRunsTable(runs: InngestRun[]): void {
   console.log(table.toString());
 }
 
-export async function displayRunDetails(run: InngestRun | InngestRunWithEvent, client?: InngestClient): Promise<void> {
+export async function displayRunDetails(
+  run: InngestRun | InngestRunWithEvent,
+  client?: InngestClient
+): Promise<void> {
   const isFailed = run.status.toLowerCase() === 'failed';
   const icon = isFailed ? '❌' : '📋';
-  
+
   console.log(chalk.bold(`\n${icon} Run Details`));
   console.log('─'.repeat(50));
   console.log(`${chalk.bold('ID:')} ${run.run_id}`);
   console.log(`${chalk.bold('Status:')} ${formatStatus(run.status)}`);
   console.log(`${chalk.bold('Function:')} ${run.function_name || run.function_id || 'N/A'}`);
-  
+
   if (run.function_version) {
     console.log(`${chalk.bold('Version:')} ${run.function_version}`);
   }
-  
+
   console.log(`${chalk.bold('Event ID:')} ${run.event_id || 'N/A'}`);
   console.log(`${chalk.bold('Started:')} ${formatTimestamp(run.run_started_at)}`);
 
@@ -97,8 +100,7 @@ export async function displayRunDetails(run: InngestRun | InngestRunWithEvent, c
   }
 
   // Display event input data if available
-  let inputData: any = null;
-
+  let inputData: unknown = null;
 
   // First check if we have cached input data for this run
   if (client) {
@@ -123,9 +125,8 @@ export async function displayRunDetails(run: InngestRun | InngestRunWithEvent, c
   if (inputData) {
     console.log(`\n${chalk.bold('Input Data:')}`);
     try {
-      const formatted = typeof inputData === 'string' 
-        ? inputData 
-        : JSON.stringify(inputData, null, 2);
+      const formatted =
+        typeof inputData === 'string' ? inputData : JSON.stringify(inputData, null, 2);
       console.log(chalk.cyan(formatted));
     } catch {
       console.log(inputData);
@@ -135,13 +136,12 @@ export async function displayRunDetails(run: InngestRun | InngestRunWithEvent, c
   if (run.output) {
     const outputLabel = isFailed ? 'Error Details:' : 'Output:';
     console.log(`\n${chalk.bold(outputLabel)}`);
-    
+
     // Pretty print JSON output with proper formatting
     try {
-      const formatted = typeof run.output === 'string' 
-        ? run.output 
-        : JSON.stringify(run.output, null, 2);
-      
+      const formatted =
+        typeof run.output === 'string' ? run.output : JSON.stringify(run.output, null, 2);
+
       // Highlight errors in red for failed runs
       if (isFailed) {
         console.log(chalk.red(formatted));

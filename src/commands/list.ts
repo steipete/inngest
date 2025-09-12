@@ -1,8 +1,13 @@
 import { Command } from 'commander';
 import { InngestClient } from '../api/client.js';
 import type { InngestRun } from '../api/types.js';
-import { getConfig } from '../utils/config.js';
-import { displayError, displayInfo, displayRunDetails, displayRunsTable } from '../utils/display.js';
+import { getConfig, type Environment } from '../utils/config.js';
+import {
+  displayError,
+  displayInfo,
+  displayRunDetails,
+  displayRunsTable,
+} from '../utils/display.js';
 
 export function createListCommand(): Command {
   const command = new Command('list')
@@ -12,23 +17,33 @@ export function createListCommand(): Command {
       'Filter by status. Available: Running, Completed, Failed, Cancelled',
       value => {
         if (!value || value.trim() === '') {
-          throw new Error('Status value is required. Available statuses: Running, Completed, Failed, Cancelled');
+          throw new Error(
+            'Status value is required. Available statuses: Running, Completed, Failed, Cancelled'
+          );
         }
-        
+
         const validStatuses = ['Running', 'Completed', 'Failed', 'Cancelled'];
         const normalizedStatus = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 
         if (!validStatuses.includes(normalizedStatus)) {
-          throw new Error(`Invalid status "${value}". Available statuses: ${validStatuses.join(', ')}`);
+          throw new Error(
+            `Invalid status "${value}". Available statuses: ${validStatuses.join(', ')}`
+          );
         }
 
         return normalizedStatus;
       }
     )
-    .option('-f, --function <functionId>', 'Filter by function ID or function name (supports partial matches)')
-    .option('-n, --function-name <name>', 'Filter by function name (partial match, e.g., "embeddings/reconcile")')
+    .option(
+      '-f, --function <functionId>',
+      'Filter by function ID or function name (supports partial matches)'
+    )
+    .option(
+      '-n, --function-name <name>',
+      'Filter by function name (partial match, e.g., "embeddings/reconcile")'
+    )
     .option('--after <timestamp>', 'Show runs started after this timestamp (ISO 8601 format)')
-    .option('--before <timestamp>', 'Show runs started before this timestamp (ISO 8601 format)')  
+    .option('--before <timestamp>', 'Show runs started before this timestamp (ISO 8601 format)')
     .option(
       '--hours <hours>',
       'Show runs from the last N hours (default: 24 when filtering by status)',
@@ -55,9 +70,13 @@ export function createListCommand(): Command {
     .option('--cursor <cursor>', 'Pagination cursor for next page')
     .option('--all', 'Fetch all results (ignores limit, may take time)')
     .option('--details', 'Show full details for each run instead of table format')
-    .action(async options => {
+    .action(async (options, command) => {
       try {
-        const config = getConfig();
+        const globalOpts = command.parent?.opts() || {};
+        const config = getConfig({
+          env: globalOpts.env as Environment,
+          devPort: globalOpts.devPort,
+        });
         const client = new InngestClient(config);
 
         let allRuns: InngestRun[] = [];
@@ -65,8 +84,9 @@ export function createListCommand(): Command {
         let hasMore = true;
 
         const functionFilter = options.function || options.functionName;
+        const envIndicator = globalOpts.env === 'dev' ? ' [DEV]' : '';
         displayInfo(
-          `Fetching runs${options.status ? ` with status: ${options.status}` : ''}${functionFilter ? ` for function: ${functionFilter}` : ''}...`
+          `Fetching runs${options.status ? ` with status: ${options.status}` : ''}${functionFilter ? ` for function: ${functionFilter}` : ''}${envIndicator}...`
         );
 
         while (hasMore) {

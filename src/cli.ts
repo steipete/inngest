@@ -16,6 +16,29 @@ program
   .name('inngest')
   .description('CLI for managing Inngest jobs - watch, cancel, filter by status')
   .version('1.0.0')
+  .option(
+    '--env <environment>',
+    'Environment to connect to',
+    value => {
+      const validEnvs = ['prod', 'dev'];
+      if (!validEnvs.includes(value)) {
+        throw new Error(`Invalid environment "${value}". Available: ${validEnvs.join(', ')}`);
+      }
+      return value as 'prod' | 'dev';
+    },
+    'prod'
+  )
+  .option(
+    '--dev-port <port>',
+    'Port for dev server (default: 3000)',
+    value => {
+      const port = parseInt(value, 10);
+      if (Number.isNaN(port) || port < 1 || port > 65535) {
+        throw new Error('Dev port must be a valid port number (1-65535)');
+      }
+      return port;
+    }
+  )
   .configureOutput({
     writeErr: (str: string) => process.stderr.write(chalk.red(str)),
   });
@@ -50,7 +73,6 @@ program.exitOverride(err => {
   displayError(err);
   process.exit(1);
 });
-
 
 // Show help if no command provided
 if (process.argv.length <= 2) {

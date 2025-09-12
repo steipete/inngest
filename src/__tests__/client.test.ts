@@ -109,29 +109,149 @@ describe('InngestClient', () => {
     });
   });
 
+  describe('findRunByPartialId', () => {
+    it('should find run by full ID when provided', async () => {
+      const mockRun = {
+        run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q',
+        status: 'Completed',
+        run_started_at: '2024-04-25T14:46:45.337Z',
+      };
+
+      const mockAxiosInstance = mockedAxios.create();
+      vi.mocked(mockAxiosInstance.get).mockResolvedValue({ data: { data: mockRun } });
+
+      const result = await client.findRunByPartialId('01HWAVJ8ASQ5C3FXV32JS9DV9Q');
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/runs/01HWAVJ8ASQ5C3FXV32JS9DV9Q');
+      expect(result).toEqual(mockRun);
+    });
+
+    it('should search events for partial ID match', async () => {
+      const mockEventsResponse = {
+        data: [
+          {
+            name: 'test.event',
+            data: { run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q' },
+          },
+          {
+            name: 'other.event',
+            data: { run_id: '01HWAVJ8ASQ5C3FXV32ABCDEFG' },
+          },
+        ],
+      };
+
+      const mockRunResponse = {
+        run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q',
+        status: 'Completed',
+        run_started_at: '2024-04-25T14:46:45.337Z',
+      };
+
+      const mockAxiosInstance = mockedAxios.create();
+      vi.mocked(mockAxiosInstance.get)
+        .mockResolvedValueOnce({ data: mockEventsResponse }) // events call
+        .mockResolvedValueOnce({ data: { data: mockRunResponse } }); // run call
+
+      const result = await client.findRunByPartialId('JS9DV9Q');
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/events?limit=200');
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/runs/01HWAVJ8ASQ5C3FXV32JS9DV9Q');
+      expect(result).toEqual(mockRunResponse);
+    });
+
+    it('should return null when partial ID not found', async () => {
+      const mockEventsResponse = {
+        data: [
+          {
+            name: 'test.event',
+            data: { run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q' },
+          },
+        ],
+      };
+
+      const mockAxiosInstance = mockedAxios.create();
+      vi.mocked(mockAxiosInstance.get).mockResolvedValue({ data: mockEventsResponse });
+
+      const result = await client.findRunByPartialId('NOTFOUND');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when events fetch fails', async () => {
+      const mockAxiosInstance = mockedAxios.create();
+      vi.mocked(mockAxiosInstance.get).mockRejectedValue(new Error('Network error'));
+
+      const result = await client.findRunByPartialId('JS9DV9Q');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when full ID lookup fails', async () => {
+      const mockAxiosInstance = mockedAxios.create();
+      vi.mocked(mockAxiosInstance.get).mockRejectedValue(new Error('Not found'));
+
+      const result = await client.findRunByPartialId('01HWAVJ8ASQ5C3FXV32JS9DV9Q');
+
+      expect(result).toBeNull();
+    });
+
+    it('should continue searching when run fetch fails for partial match', async () => {
+      const mockEventsResponse = {
+        data: [
+          {
+            name: 'test.event',
+            data: { run_id: '01HWAVJ8ASQ5C3FXV32TESTME' },
+          },
+          {
+            name: 'other.event',
+            data: { run_id: '01HWAVJ8ASQ5C3FXV32MATCHME' },
+          },
+        ],
+      };
+
+      const mockRunResponse = {
+        run_id: '01HWAVJ8ASQ5C3FXV32MATCHME',
+        status: 'Failed',
+        run_started_at: '2024-04-25T14:46:45.337Z',
+      };
+
+      const mockAxiosInstance = mockedAxios.create();
+      vi.mocked(mockAxiosInstance.get)
+        .mockResolvedValueOnce({ data: mockEventsResponse }) // events call
+        .mockRejectedValueOnce(new Error('First run not found')) // first run call fails (TESTME)
+        .mockResolvedValueOnce({ data: { data: mockRunResponse } }); // second run call succeeds (MATCHME)
+
+      const result = await client.findRunByPartialId('ME');
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/events?limit=200');
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/runs/01HWAVJ8ASQ5C3FXV32TESTME');
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/runs/01HWAVJ8ASQ5C3FXV32MATCHME');
+      expect(result).toEqual(mockRunResponse);
+    });
+  });
+
   describe('listRuns', () => {
     it('should list runs with default options', async () => {
       const mockEventsResponse = {
         data: [
           {
             name: 'test.event',
-            data: { run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q' }
-          }
-        ]
+            data: { run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q' },
+          },
+        ],
       };
-      
+
       const mockRunResponse = {
         data: {
           run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q',
           status: 'Completed' as const,
           run_started_at: '2024-04-25T14:46:45.337Z',
-        }
+        },
       };
 
       const mockAxiosInstance = mockedAxios.create();
       vi.mocked(mockAxiosInstance.get)
-        .mockResolvedValueOnce({ data: mockEventsResponse })  // events call
-        .mockResolvedValueOnce({ data: mockRunResponse });    // run call
+        .mockResolvedValueOnce({ data: mockEventsResponse }) // events call
+        .mockResolvedValueOnce({ data: mockRunResponse }); // run call
 
       const result = await client.listRuns();
 
@@ -156,9 +276,9 @@ describe('InngestClient', () => {
         limit: 50,
       });
 
-      // When status is provided, it now includes event limit (500) and time range
+      // When status is provided, it now includes event limit (100) and time range
       expect(mockAxiosInstance.get).toHaveBeenCalledWith(
-        expect.stringMatching(/\/v1\/events\?limit=500&cursor=test-cursor&received_after=/)
+        expect.stringMatching(/\/v1\/events\?limit=100&cursor=test-cursor&received_after=/)
       );
       expect(result.data).toHaveLength(0);
     });
@@ -203,6 +323,34 @@ describe('InngestClient', () => {
       await client.cancelRun('01HWAVJ8ASQ5C3FXV32JS9DV9Q');
 
       expect(mockAxiosInstance.delete).toHaveBeenCalledWith('/v1/runs/01HWAVJ8ASQ5C3FXV32JS9DV9Q');
+    });
+  });
+
+  describe('getEvent', () => {
+    it('should fetch and validate event data', async () => {
+      const mockEvent = {
+        id: '01HWAVEB858VPPX47Z65GR6P6R',
+        name: 'test.event',
+        data: { userId: '123', action: 'payment' },
+        ts: 1640995200000,
+      };
+
+      const mockAxiosInstance = mockedAxios.create();
+      vi.mocked(mockAxiosInstance.get).mockResolvedValue({ data: { data: mockEvent } });
+
+      const result = await client.getEvent('01HWAVEB858VPPX47Z65GR6P6R');
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/v1/events/01HWAVEB858VPPX47Z65GR6P6R');
+      expect(result).toEqual(mockEvent);
+    });
+
+    it('should return null when event not found', async () => {
+      const mockAxiosInstance = mockedAxios.create();
+      vi.mocked(mockAxiosInstance.get).mockRejectedValue(new Error('Not found'));
+
+      const result = await client.getEvent('01HWAVEB858VPPX47Z65GR6P6R');
+
+      expect(result).toBeNull();
     });
   });
 

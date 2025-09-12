@@ -39,10 +39,12 @@ export const ListRunsResponseSchema = z.object({
   data: z.array(InngestRunSchema),
   has_more: z.boolean().optional(),
   cursor: z.string().optional(),
-  metadata: z.object({
-    fetched_at: z.string(),
-    cached_until: z.string().nullable(),
-  }).optional(),
+  metadata: z
+    .object({
+      fetched_at: z.string(),
+      cached_until: z.string().nullable(),
+    })
+    .optional(),
 });
 
 export const EventRunsResponseSchema = z.object({
@@ -92,7 +94,7 @@ export type InngestJob = z.infer<typeof InngestJobSchema>;
 
 // Extended run type with event data for detailed display
 export type InngestRunWithEvent = InngestRun & {
-  event_data?: any; // The original event data that triggered this run
+  event_data?: unknown; // The original event data that triggered this run
 };
 export type ListRunsResponse = z.infer<typeof ListRunsResponseSchema>;
 export type EventRunsResponse = z.infer<typeof EventRunsResponseSchema>;

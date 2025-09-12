@@ -31,6 +31,35 @@ export INNGEST_SIGNING_KEY="your-signing-key-here"
 
 Get your signing key from: https://app.inngest.com/env/production/manage/signing-key
 
+### Environment Configuration
+
+The CLI supports both **production** and **development** environments:
+
+#### Production (Default)
+```bash
+# Uses https://api.inngest.com
+inngest list --status Failed
+```
+
+#### Development Environment
+```bash
+# Uses local dev server at http://localhost:3000
+inngest list --env dev --status Failed
+
+# Custom dev server port
+inngest list --env dev --dev-port 8080 --status Failed
+```
+
+#### Environment Variables
+- `INNGEST_SIGNING_KEY` - Your Inngest signing key (required)
+- `INNGEST_API_URL` - Custom production API URL (optional)
+- `INNGEST_DEV_SERVER_URL` - Custom dev server URL (optional)
+- `INNGEST_DEV_SERVER_PORT` - Default dev server port (optional)
+
+#### Global Options
+- `--env <environment>` - Switch between `prod` (default) and `dev`
+- `--dev-port <port>` - Override dev server port (default: 3000)
+
 ## Usage
 
 ### Check Run Status

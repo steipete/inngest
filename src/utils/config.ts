@@ -11,9 +11,18 @@ if (process.env.NODE_ENV !== 'test' && !process.env.INNGEST_SIGNING_KEY) {
 const EnvSchema = z.object({
   INNGEST_SIGNING_KEY: z.string().min(1, 'INNGEST_SIGNING_KEY environment variable is required'),
   INNGEST_API_URL: z.string().url().optional(),
+  INNGEST_DEV_SERVER_URL: z.string().url().optional(),
+  INNGEST_DEV_SERVER_PORT: z.string().optional(),
 });
 
-export function getConfig(): ApiConfig {
+export type Environment = 'prod' | 'dev';
+
+export interface ConfigOptions {
+  env?: Environment;
+  devPort?: number;
+}
+
+export function getConfig(options: ConfigOptions = {}): ApiConfig {
   // Check if signing key is set at all
   if (!process.env.INNGEST_SIGNING_KEY) {
     throw new Error(
@@ -31,6 +40,8 @@ export function getConfig(): ApiConfig {
   const envResult = EnvSchema.safeParse({
     INNGEST_SIGNING_KEY: process.env.INNGEST_SIGNING_KEY,
     INNGEST_API_URL: process.env.INNGEST_API_URL,
+    INNGEST_DEV_SERVER_URL: process.env.INNGEST_DEV_SERVER_URL,
+    INNGEST_DEV_SERVER_PORT: process.env.INNGEST_DEV_SERVER_PORT,
   });
 
   if (!envResult.success) {
@@ -42,9 +53,21 @@ export function getConfig(): ApiConfig {
     );
   }
 
+  // Determine the base URL based on environment
+  let baseUrl: string;
+  
+  if (options.env === 'dev') {
+    // Dev environment - use local dev server
+    const devPort = options.devPort || (envResult.data.INNGEST_DEV_SERVER_PORT ? parseInt(envResult.data.INNGEST_DEV_SERVER_PORT) : 3000);
+    baseUrl = envResult.data.INNGEST_DEV_SERVER_URL || `http://localhost:${devPort}`;
+  } else {
+    // Production environment (default)
+    baseUrl = envResult.data.INNGEST_API_URL || 'https://api.inngest.com';
+  }
+
   const configData = {
     signingKey: envResult.data.INNGEST_SIGNING_KEY,
-    baseUrl: envResult.data.INNGEST_API_URL || 'https://api.inngest.com',
+    baseUrl,
   };
 
   // Validate the final config

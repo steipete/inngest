@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InngestClient } from '../api/client.js';
+import type { InngestRun } from '../api/types.js';
 import { validateRunId } from '../utils/config.js';
 
 // Mock the client and utilities
@@ -21,11 +22,18 @@ const mockClient = vi.mocked(InngestClient);
 const mockValidateRunId = vi.mocked(validateRunId);
 
 describe('Command Logic Integration', () => {
-  let mockClientInstance: any;
+  let mockClientInstance: {
+    getRun: ReturnType<typeof vi.fn>;
+    findRunByPartialId: ReturnType<typeof vi.fn>;
+    getEvent: ReturnType<typeof vi.fn>;
+    getEventRuns: ReturnType<typeof vi.fn>;
+    getJobs: ReturnType<typeof vi.fn>;
+    listRuns: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     mockClientInstance = {
       getRun: vi.fn(),
       findRunByPartialId: vi.fn(),
@@ -34,9 +42,11 @@ describe('Command Logic Integration', () => {
       getJobs: vi.fn(),
       listRuns: vi.fn(),
     };
-    
+
     mockClient.mockImplementation(() => mockClientInstance);
-    mockValidateRunId.mockImplementation((id: string) => id.length === 26 && /^[0-9A-HJKMNP-TV-Z]{26}$/.test(id));
+    mockValidateRunId.mockImplementation(
+      (id: string) => id.length === 26 && /^[0-9A-HJKMNP-TV-Z]{26}$/.test(id)
+    );
   });
 
   describe('Partial ID support logic', () => {
@@ -52,7 +62,7 @@ describe('Command Logic Integration', () => {
 
       // Simulate the logic from the status command
       const client = new InngestClient({ signingKey: 'test' });
-      let run;
+      let run: InngestRun | null;
 
       if (validateRunId(fullRunId)) {
         run = await client.getRun(fullRunId);
@@ -78,7 +88,7 @@ describe('Command Logic Integration', () => {
 
       // Simulate the logic from the status command
       const client = new InngestClient({ signingKey: 'test' });
-      let run;
+      let run: InngestRun | null;
 
       if (validateRunId(partialId)) {
         run = await client.getRun(partialId);
@@ -97,7 +107,7 @@ describe('Command Logic Integration', () => {
 
       // Simulate the logic from the status command
       const client = new InngestClient({ signingKey: 'test' });
-      let run;
+      let run: InngestRun | null;
 
       if (validateRunId(partialId)) {
         run = await client.getRun(partialId);
@@ -131,7 +141,7 @@ describe('Command Logic Integration', () => {
 
       // Simulate the logic from the jobs command
       const client = new InngestClient({ signingKey: 'test' });
-      let run;
+      let run: InngestRun | null;
 
       if (validateRunId(partialId)) {
         run = await client.getRun(partialId);
@@ -139,7 +149,8 @@ describe('Command Logic Integration', () => {
         run = await client.findRunByPartialId(partialId);
       }
 
-      const jobs = await client.getJobs(run!.run_id);
+      if (!run) throw new Error('Run not found');
+      const jobs = await client.getJobs(run.run_id);
 
       expect(mockClientInstance.findRunByPartialId).toHaveBeenCalledWith(partialId);
       expect(mockClientInstance.getJobs).toHaveBeenCalledWith(fullRunId);
@@ -156,7 +167,7 @@ describe('Command Logic Integration', () => {
           run_started_at: '2024-04-25T14:46:45.337Z',
           ended_at: '2024-04-25T14:46:47.337Z',
           function_name: 'test-function',
-          output: { error: 'Test error message' }
+          output: { error: 'Test error message' },
         },
         {
           run_id: '01HWAVJ8ASQ5C3FXV32ABCDEFG',
@@ -164,8 +175,8 @@ describe('Command Logic Integration', () => {
           run_started_at: '2024-04-25T14:45:45.337Z',
           ended_at: '2024-04-25T14:45:48.337Z',
           function_name: 'other-function',
-          output: { error: 'Another test error' }
-        }
+          output: { error: 'Another test error' },
+        },
       ];
 
       const mockResponse = {
@@ -173,24 +184,24 @@ describe('Command Logic Integration', () => {
         has_more: false,
         metadata: {
           fetched_at: new Date().toISOString(),
-          cached_until: null
-        }
+          cached_until: null,
+        },
       };
 
       mockClientInstance.listRuns.mockResolvedValue(mockResponse);
 
       const client = new InngestClient({ signingKey: 'test' });
-      
+
       // Test listing with details (simulating --details flag logic)
       const response = await client.listRuns({
         status: 'Failed',
-        limit: 10
+        limit: 10,
       });
 
       expect(response.data).toEqual(mockFailedRuns);
       expect(mockClientInstance.listRuns).toHaveBeenCalledWith({
         status: 'Failed',
-        limit: 10
+        limit: 10,
       });
     });
   });

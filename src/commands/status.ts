@@ -1,16 +1,21 @@
 import { Command } from 'commander';
 import { InngestClient } from '../api/client.js';
-import { getConfig, validateEventId, validateRunId } from '../utils/config.js';
+import type { InngestRun } from '../api/types.js';
+import { getConfig, validateEventId, validateRunId, type Environment } from '../utils/config.js';
 import { displayError, displayRunDetails, displayRunsTable } from '../utils/display.js';
 
 export function createStatusCommand(): Command {
   const command = new Command('status')
     .description('Get the status of runs')
-    .option('-r, --run <runId>', 'Get status for a specific run ID')
+    .option('-r, --run <runId>', 'Get status for a specific run ID (full or partial ID supported)')
     .option('-e, --event <eventId>', 'Get status for all runs of a specific event')
-    .action(async options => {
+    .action(async (options, command) => {
       try {
-        const config = getConfig();
+        const globalOpts = command.parent?.opts() || {};
+        const config = getConfig({
+          env: globalOpts.env as Environment,
+          devPort: globalOpts.devPort,
+        });
         const client = new InngestClient(config);
 
         if (!options.run && !options.event) {
@@ -22,12 +27,27 @@ export function createStatusCommand(): Command {
         }
 
         if (options.run) {
-          if (!validateRunId(options.run)) {
-            throw new Error('Invalid run ID format');
+          // Try to find run by full or partial ID
+          let run: InngestRun | null = null;
+
+          if (validateRunId(options.run)) {
+            // Full valid run ID
+            run = await client.getRun(options.run);
+          } else {
+            // Try partial ID search
+            run = await client.findRunByPartialId(options.run);
+            if (!run) {
+              throw new Error(
+                `Run not found with ID "${options.run}". ` +
+                  `Please provide either:\n` +
+                  `  • Full run ID (26 characters): 01K4Z25NHYZFHPRKED1TV8410X\n` +
+                  `  • Partial ID from table (12+ characters): RKED1TV8410X\n\n` +
+                  `💡 Use "inngest list" to see available runs.`
+              );
+            }
           }
 
-          const run = await client.getRun(options.run);
-          displayRunDetails(run);
+          await displayRunDetails(run, client);
         }
 
         if (options.event) {

@@ -25,7 +25,7 @@ import {
 
 export class InngestClient {
   private client: AxiosInstance;
-  private inputDataCache: Map<string, any> = new Map(); // runId -> input data
+  private inputDataCache: Map<string, unknown> = new Map(); // runId -> input data
 
   constructor(config: ApiConfig) {
     // Validate config using Zod
@@ -144,24 +144,28 @@ export class InngestClient {
     // Search recent events for runs with matching partial ID
     try {
       const events = await this.listEvents({ limit: 200 });
-      
+
       for (const event of events.data) {
-        if (event.data?.run_id && event.data.run_id.endsWith(partialId)) {
-          try {
-            return await this.getRun(event.data.run_id);
-          } catch {
-            continue;
+        const eventRecord = event as Record<string, unknown>;
+        if (eventRecord.data && typeof eventRecord.data === 'object' && eventRecord.data !== null) {
+          const eventData = eventRecord.data as Record<string, unknown>;
+          if (typeof eventData.run_id === 'string' && eventData.run_id.endsWith(partialId)) {
+            try {
+              return await this.getRun(eventData.run_id);
+            } catch {}
           }
         }
       }
-      
+
       return null;
     } catch {
       return null;
     }
   }
 
-  async listEvents(options: { limit?: number; cursor?: string; name?: string } = {}): Promise<{ data: any[]; metadata: any }> {
+  async listEvents(
+    options: { limit?: number; cursor?: string; name?: string } = {}
+  ): Promise<{ data: unknown[]; metadata: unknown }> {
     const params = new URLSearchParams();
     if (options.limit) params.append('limit', options.limit.toString());
     if (options.cursor) params.append('cursor', options.cursor);
@@ -190,10 +194,10 @@ export class InngestClient {
   }
 
   async listRuns(
-    options: { 
-      status?: string; 
-      function_id?: string; 
-      cursor?: string; 
+    options: {
+      status?: string;
+      function_id?: string;
+      cursor?: string;
       limit?: number;
       after?: string;
       before?: string;
@@ -202,10 +206,10 @@ export class InngestClient {
   ): Promise<ListRunsResponse> {
     // Get events - use larger limit and broader time range when filtering by status
     const eventsParams = new URLSearchParams();
-    const eventLimit = options.status ? 100 : (options.limit || 50); // Use API maximum of 100 for status searches
+    const eventLimit = options.status ? 100 : options.limit || 50; // Use API maximum of 100 for status searches
     eventsParams.append('limit', eventLimit.toString());
     if (options.cursor) eventsParams.append('cursor', options.cursor);
-    
+
     // Handle time range parameters
     if (options.after) {
       eventsParams.append('received_after', options.after);
@@ -222,8 +226,8 @@ export class InngestClient {
       eventsParams.append('received_after', monthsAgo.toISOString());
       console.log(`Debug: Status search going back to: ${monthsAgo.toISOString()}`);
     }
-    
-    // Note: We don't pre-filter events by status because event names don't always 
+
+    // Note: We don't pre-filter events by status because event names don't always
     // match final run status (e.g., failed runs can be later cancelled)
     // Instead, we filter by status after fetching the actual run details
 
@@ -231,17 +235,26 @@ export class InngestClient {
     const initialEventsResponse = await this.client.get(`/v1/events?${eventsParams}`);
     let events = initialEventsResponse.data.data || [];
     console.log(`Debug: Initial page loaded: ${events.length} events`);
-    console.log(`Debug: Response metadata:`, JSON.stringify(initialEventsResponse.data.metadata, null, 2));
-    
+    console.log(
+      `Debug: Response metadata:`,
+      JSON.stringify(initialEventsResponse.data.metadata, null, 2)
+    );
+
     // If filtering by status, try time-based chunking to get more historical data
     if (options.status) {
-      const timeBasedEvents = await this.fetchTimeBasedChunks(eventsParams, options);
+      const timeBasedEvents = await this.fetchTimeBasedChunks(eventsParams, {
+        ...options,
+        maxResults: Math.max((options.limit || 20) * 5, 200), // Request 5x the limit to account for filtering
+      });
       events = events.concat(timeBasedEvents);
       console.log(`Debug: Total events after time-based search: ${events.length}`);
-      
+
       // Also try cursor-based pagination if available
       if (events.length > 0) {
-        const additionalEvents = await this.fetchAdditionalPages(eventsParams, initialEventsResponse);
+        const additionalEvents = await this.fetchAdditionalPages(
+          eventsParams,
+          initialEventsResponse
+        );
         events = events.concat(additionalEvents);
         console.log(`Debug: Total events after all pagination: ${events.length}`);
       }
@@ -253,58 +266,76 @@ export class InngestClient {
     const functionNames = new Map<string, string>(); // runId -> functionName
 
     // First pass: collect function names and event data from events
-    const eventDataMap = new Map<string, any>(); // runId -> original event data
+    const eventDataMap = new Map<string, unknown>(); // runId -> original event data
     for (const event of events) {
-      if (event.data?.run_id && event.data?.function_id) {
-        functionNames.set(event.data.run_id, event.data.function_id);
-        // Store the full event for later use - this contains the input data
-        eventDataMap.set(event.data.run_id, event);
+      const eventRecord = event as Record<string, unknown>;
+      if (eventRecord.data && typeof eventRecord.data === 'object' && eventRecord.data !== null) {
+        const data = eventRecord.data as Record<string, unknown>;
+        if (typeof data.run_id === 'string' && typeof data.function_id === 'string') {
+          functionNames.set(data.run_id, data.function_id);
+          // Store the full event for later use - this contains the input data
+          eventDataMap.set(data.run_id, event);
+        }
       }
     }
 
     for (const event of events) {
-      if (event.data?.run_id) {
-        const runId = event.data.run_id;
-        if (!seenRunIds.has(runId)) {
-          seenRunIds.add(runId);
-          try {
-            const run = await this.getRun(runId);
-            
-            // Add function name and event data
-            const functionName = functionNames.get(runId);
-            const eventData = eventDataMap.get(runId);
-            // Extract the actual input data from the event structure
-            let inputData = null;
-            if (eventData?.data && typeof eventData.data === 'object') {
-              // The event data contains an 'event' object with the actual input data
-              const eventInfo = eventData.data.event || eventData.data.events?.[0];
-              if (eventInfo && eventInfo.data) {
-                inputData = eventInfo.data;
+      const eventRecord = event as Record<string, unknown>;
+      if (eventRecord.data && typeof eventRecord.data === 'object' && eventRecord.data !== null) {
+        const data = eventRecord.data as Record<string, unknown>;
+        if (typeof data.run_id === 'string') {
+          const runId = data.run_id;
+          if (!seenRunIds.has(runId)) {
+            seenRunIds.add(runId);
+            try {
+              const run = await this.getRun(runId);
+
+              // Add function name and event data
+              const functionName = functionNames.get(runId);
+              const eventData = eventDataMap.get(runId);
+              // Extract the actual input data from the event structure
+              let inputData = null;
+              const eventDataRecord = eventData as Record<string, unknown>;
+              if (
+                eventDataRecord?.data &&
+                typeof eventDataRecord.data === 'object' &&
+                eventDataRecord.data !== null
+              ) {
+                const dataRecord = eventDataRecord.data as Record<string, unknown>;
+                // The event data contains an 'event' object with the actual input data
+                const eventInfo =
+                  dataRecord.event ||
+                  (Array.isArray(dataRecord.events) ? dataRecord.events[0] : null);
+                if (eventInfo && typeof eventInfo === 'object' && eventInfo !== null) {
+                  const eventInfoRecord = eventInfo as Record<string, unknown>;
+                  if (eventInfoRecord.data) {
+                    inputData = eventInfoRecord.data;
+                  }
+                }
               }
-            }
 
-            // Cache the input data for this run
-            if (inputData) {
-              this.inputDataCache.set(runId, inputData);
-            }
+              // Cache the input data for this run
+              if (inputData) {
+                this.inputDataCache.set(runId, inputData);
+              }
 
-            const enrichedRun = { 
-              ...run, 
-              function_name: functionName
-            };
+              const enrichedRun = {
+                ...run,
+                function_name: functionName,
+              };
 
-            // Apply filters (check both function_id and function_name)
-            if (options.status && enrichedRun.status !== options.status) continue;
-            if (options.function_id) {
-              const matchesFunctionId = enrichedRun.function_id === options.function_id;
-              const matchesFunctionName = enrichedRun.function_name?.includes(options.function_id);
-              if (!matchesFunctionId && !matchesFunctionName) continue;
-            }
-            
-            runs.push(enrichedRun);
-          } catch (error) {
-            // Skip runs that can't be fetched
-            continue;
+              // Apply filters (check both function_id and function_name)
+              if (options.status && enrichedRun.status !== options.status) continue;
+              if (options.function_id) {
+                const matchesFunctionId = enrichedRun.function_id === options.function_id;
+                const matchesFunctionName = enrichedRun.function_name?.includes(
+                  options.function_id
+                );
+                if (!matchesFunctionId && !matchesFunctionName) continue;
+              }
+
+              runs.push(enrichedRun);
+            } catch (_error) {}
           }
         }
       }
@@ -314,10 +345,10 @@ export class InngestClient {
       data: runs.slice(0, options.limit || 20),
       metadata: {
         fetched_at: new Date().toISOString(),
-        cached_until: null
-      }
+        cached_until: null,
+      },
     };
-    
+
     return this.validateResponse<ListRunsResponse>(result, ListRunsResponseSchema);
   }
 
@@ -346,38 +377,40 @@ export class InngestClient {
     return this.validateResponse<CancellationStatus>(response.data, CancellationStatusSchema);
   }
 
-  getInputDataForRun(runId: string): any | null {
+  getInputDataForRun(runId: string): unknown {
     return this.inputDataCache.get(runId) || null;
   }
 
   private async fetchAdditionalPages(
-    baseParams: URLSearchParams, 
-    initialResponse: any
-  ): Promise<any[]> {
-    const additionalEvents: any[] = [];
+    baseParams: URLSearchParams,
+    initialResponse: { data: { metadata?: { next_cursor?: string } } }
+  ): Promise<unknown[]> {
+    const additionalEvents: unknown[] = [];
     let currentCursor = initialResponse.data.metadata?.next_cursor;
     let pagesLoaded = 0;
     const maxAdditionalPages = 20; // Fetch up to 20 additional pages
-    
+
     while (currentCursor && pagesLoaded < maxAdditionalPages) {
       const pageParams = new URLSearchParams(baseParams);
       pageParams.set('cursor', currentCursor);
-      
+
       console.log(`Debug: Fetching additional page ${pagesLoaded + 2}...`);
-      
+
       try {
         const eventsResponse = await this.client.get(`/v1/events?${pageParams}`);
         const pageEvents = eventsResponse.data.data;
-        
+
         if (!pageEvents || pageEvents.length === 0) {
           console.log(`Debug: No more events in page ${pagesLoaded + 2}`);
           break;
         }
-        
+
         additionalEvents.push(...pageEvents);
         pagesLoaded++;
-        console.log(`Debug: Page ${pagesLoaded + 1} loaded: ${pageEvents.length} events (${additionalEvents.length} total additional)`);
-        
+        console.log(
+          `Debug: Page ${pagesLoaded + 1} loaded: ${pageEvents.length} events (${additionalEvents.length} total additional)`
+        );
+
         // Check for next cursor
         const nextCursor = eventsResponse.data.metadata?.next_cursor;
         if (nextCursor && nextCursor !== currentCursor) {
@@ -386,62 +419,89 @@ export class InngestClient {
           console.log(`Debug: Reached end of pagination after ${pagesLoaded + 1} pages`);
           break;
         }
-      } catch (error) {
+      } catch (_error) {
         console.log(`Debug: Error fetching page ${pagesLoaded + 2}, stopping pagination`);
         break;
       }
     }
-    
+
     return additionalEvents;
   }
 
   private async fetchTimeBasedChunks(
     baseParams: URLSearchParams,
-    options: { hours?: number; status?: string }
-  ): Promise<any[]> {
-    const allEvents: any[] = [];
-    
+    options: { hours?: number; status?: string; maxResults?: number }
+  ): Promise<unknown[]> {
+    const allEvents: unknown[] = [];
+
     // Determine time range to search
     const totalHours = options.hours || 168; // Default to 1 week
-    const chunkHours = 24; // Search in 24-hour chunks
+    const chunkHours = 12; // Use smaller chunks for better parallelism
     const chunks = Math.ceil(totalHours / chunkHours);
-    
-    console.log(`Debug: Searching ${totalHours} hours in ${chunks} chunks of ${chunkHours} hours each`);
-    
-    for (let i = 1; i < chunks; i++) { // Start from 1 since we already got the first chunk
+    const maxResults = options.maxResults || 1000;
+
+    console.log(
+      `Debug: Searching ${totalHours} hours in ${chunks} chunks of ${chunkHours} hours each (parallel)`
+    );
+
+    // Create all chunk promises in parallel
+    const chunkPromises = [];
+    for (let i = 1; i < chunks && i <= 6; i++) { // Limit to 6 parallel requests to avoid overwhelming the API
+      // Start from 1 since we already got the first chunk
       const endHours = i * chunkHours;
       const startHours = Math.min((i + 1) * chunkHours, totalHours);
-      
+
       const endTime = new Date();
       endTime.setHours(endTime.getHours() - endHours);
-      
+
       const startTime = new Date();
       startTime.setHours(startTime.getHours() - startHours);
-      
+
       const chunkParams = new URLSearchParams(baseParams);
       chunkParams.set('received_after', startTime.toISOString());
       chunkParams.set('received_before', endTime.toISOString());
-      
+
       console.log(`Debug: Chunk ${i + 1}: ${startTime.toISOString()} to ${endTime.toISOString()}`);
-      
-      try {
-        const response = await this.client.get(`/v1/events?${chunkParams}`);
-        const chunkEvents = response.data.data || [];
-        console.log(`Debug: Chunk ${i + 1} returned ${chunkEvents.length} events`);
-        
-        if (chunkEvents.length > 0) {
-          allEvents.push(...chunkEvents);
-        }
-        
-        // Add a small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-      } catch (error) {
-        console.log(`Debug: Error fetching chunk ${i + 1}, skipping`);
+
+      chunkPromises.push(
+        this.client.get(`/v1/events?${chunkParams}`)
+          .then(response => ({
+            chunkIndex: i + 1,
+            events: response.data.data || [],
+          }))
+          .catch(_error => ({
+            chunkIndex: i + 1,
+            events: [] as unknown[],
+            error: true,
+          }))
+      );
+    }
+
+    // Execute all chunks in parallel
+    const results = await Promise.all(chunkPromises);
+    
+    // Sort results by chunk index to maintain chronological order
+    results.sort((a, b) => a.chunkIndex - b.chunkIndex);
+
+    for (const result of results) {
+      if ('error' in result) {
+        console.log(`Debug: Error fetching chunk ${result.chunkIndex}, skipping`);
         continue;
       }
+      
+      console.log(`Debug: Chunk ${result.chunkIndex} returned ${result.events.length} events`);
+      
+      if (result.events.length > 0) {
+        allEvents.push(...result.events);
+        
+        // Early termination if we have enough events
+        if (allEvents.length >= maxResults) {
+          console.log(`Debug: Early termination after ${allEvents.length} events (limit: ${maxResults})`);
+          break;
+        }
+      }
     }
-    
-    return allEvents;
+
+    return allEvents.slice(0, maxResults);
   }
 }
