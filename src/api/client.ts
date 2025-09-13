@@ -30,7 +30,7 @@ export class InngestClient {
 
   constructor(config: ApiConfig, options: { verbose?: boolean } = {}) {
     this.verbose = options.verbose || false;
-    
+
     // Validate config using Zod
     const validatedConfig = ApiConfigSchema.parse(config);
 
@@ -506,9 +506,7 @@ export class InngestClient {
 
         // Early termination if we have enough events
         if (allEvents.length >= maxResults) {
-          this.debug(
-            `Early termination after ${allEvents.length} events (limit: ${maxResults})`
-          );
+          this.debug(`Early termination after ${allEvents.length} events (limit: ${maxResults})`);
           break;
         }
       }
