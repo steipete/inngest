@@ -36,7 +36,15 @@ program
     return port;
   })
   .configureOutput({
-    writeErr: (str: string) => process.stderr.write(chalk.red(str)),
+    writeOut: (str) => process.stdout.write(str),
+    writeErr: (str) => process.stderr.write(str),
+    outputError: (str, write) => {
+      // Commander calls this for help "errors" - suppress them
+      if (str.includes('(outputHelp)')) {
+        return;
+      }
+      write(chalk.red(str));
+    }
   });
 
 // Add commands
@@ -47,25 +55,16 @@ program.addCommand(createCancelCommand());
 program.addCommand(createJobsCommand());
 program.addCommand(createCancellationStatusCommand());
 
-// Global error handler
+// Handle help and version cleanly without showing errors
 program.exitOverride(err => {
-  if (err.code === 'commander.help') {
+  // Check for help - Commander uses 'commander.helpDisplayed' code
+  if (err.code === 'commander.helpDisplayed') {
     process.exit(0);
   }
   if (err.code === 'commander.version') {
     process.exit(0);
   }
-  if (err.code === 'commander.optionMissingArgument') {
-    // Handle missing arguments with helpful messages
-    if (err.message.includes("option '-s, --status")) {
-      console.error(chalk.red('❌ Error: Status value is required\n'));
-      console.error('Available statuses: Running, Completed, Failed, Cancelled\n');
-      console.error('Examples:');
-      console.error('  inngest list --status Running');
-      console.error('  inngest list --status Failed');
-      process.exit(1);
-    }
-  }
+  // For other errors, display them properly and exit
   displayError(err);
   process.exit(1);
 });
@@ -84,8 +83,12 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-// Handle uncaught exceptions
+// Handle uncaught exceptions (but not help)
 process.on('uncaughtException', error => {
+  // Don't show error for help output
+  if (error.message && error.message.includes('(outputHelp)')) {
+    process.exit(0);
+  }
   displayError(error);
   process.exit(1);
 });
