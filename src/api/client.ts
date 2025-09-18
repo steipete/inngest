@@ -377,7 +377,46 @@ export class InngestClient {
     // Validate request before sending
     const validatedRequest = CancellationRequestSchema.parse(request);
     const response = await this.client.post('/v1/cancellations', validatedRequest);
-    return this.validateResponse<CancellationResponse>(response.data, CancellationResponseSchema);
+    const payload = response.data as unknown;
+
+    const normalized: unknown = (() => {
+      if (payload && typeof payload === 'object') {
+        const direct = payload as Record<string, unknown>;
+
+        // Newer API responses already expose cancellation_id + status at the top level.
+        if (
+          typeof direct.cancellation_id === 'string' &&
+          typeof direct.status === 'string'
+        ) {
+          return direct;
+        }
+
+        // Legacy responses wrap values under a `data` object (e.g. { data: { id, status } }).
+        if (direct.data && typeof direct.data === 'object') {
+          const data = direct.data as Record<string, unknown>;
+          const cancellationId = typeof data.id === 'string' ? data.id : undefined;
+          const status = typeof data.status === 'string' ? data.status : 'pending';
+
+          if (cancellationId) {
+            return {
+              cancellation_id: cancellationId,
+              status,
+            } satisfies CancellationResponse;
+          }
+        }
+      }
+
+      // Fallback to a sentinel so Zod surfaces a useful validation error instead of crashing.
+      return {
+        cancellation_id: 'unknown',
+        status: 'pending',
+      } satisfies CancellationResponse;
+    })();
+
+    return this.validateResponse<CancellationResponse>(
+      normalized,
+      CancellationResponseSchema
+    );
   }
 
   async getCancellationStatus(cancellationId: string): Promise<CancellationStatus> {
