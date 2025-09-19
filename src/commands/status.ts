@@ -2,13 +2,21 @@ import { Command } from 'commander';
 import { InngestClient } from '../api/client.js';
 import type { InngestRun } from '../api/types.js';
 import { type Environment, getConfig, validateEventId, validateRunId } from '../utils/config.js';
-import { displayError, displayRunDetails, displayRunsTable } from '../utils/display.js';
+import {
+  displayError,
+  displayRunDetails,
+  displayRunsTable,
+  outputJSON,
+  prepareRunDetailsForJSON,
+  prepareRunsForJSON,
+} from '../utils/display.js';
 
 export function createStatusCommand(): Command {
   const command = new Command('status')
     .description('Get the status of runs')
     .option('-r, --run <runId>', 'Get status for a specific run ID (full or partial ID supported)')
     .option('-e, --event <eventId>', 'Get status for all runs of a specific event')
+    .option('--format <format>', 'Output format: table or json (default: table)', 'table')
     .action(async (options, command) => {
       try {
         const globalOpts = command.parent?.opts() || {};
@@ -47,7 +55,12 @@ export function createStatusCommand(): Command {
             }
           }
 
-          await displayRunDetails(run, client);
+          if (options.format === 'json') {
+            const inputData = client.getInputDataForRun(run.run_id);
+            outputJSON(prepareRunDetailsForJSON(run, inputData));
+          } else {
+            await displayRunDetails(run, client);
+          }
         }
 
         if (options.event) {
@@ -56,7 +69,15 @@ export function createStatusCommand(): Command {
           }
 
           const runs = await client.getEventRuns(options.event);
-          displayRunsTable(runs);
+          if (options.format === 'json') {
+            outputJSON({
+              event_id: options.event,
+              runs: prepareRunsForJSON(runs),
+              total: runs.length,
+            });
+          } else {
+            displayRunsTable(runs);
+          }
         }
       } catch (error) {
         displayError(error as Error);

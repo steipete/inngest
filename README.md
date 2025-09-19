@@ -63,17 +63,39 @@ inngest list --env dev --dev-port 8080 --status Failed
 
 ## Usage
 
+### Output Formats
+
+All commands support both **table** (default) and **JSON** output formats for easy integration with other tools:
+
+```bash
+# Default table format
+inngest list --status Failed
+
+# JSON format for programmatic use
+inngest list --status Failed --format json
+
+# Pipe JSON output to jq for processing
+inngest list --status Failed --format json | jq '.runs[].run_id'
+
+# Get specific fields from JSON
+inngest status --run 01K4ZAM6W753HAT --format json | jq '.status'
+```
+
 ### Check Run Status
 
 ```bash
 # Get status for a specific run (full ID)
 inngest status --run 01K4ZAM6W753HATTAQ53E8YJ2T
 
-# Get status using partial ID from table (12+ characters)  
+# Get status using partial ID from table (12+ characters)
 inngest status --run HATTAQ53E8YJ2T
 
 # Get status for all runs of an event
 inngest status --event 01HWAVEB858VPPX47Z65GR6P6R
+
+# JSON output for integration
+inngest status --run 01K4ZAM6W753HAT --format json
+inngest status --event 01HWAVEB858VPP --format json | jq '.runs'
 ```
 
 ### List Runs with Filtering
@@ -122,6 +144,12 @@ inngest list --status Failed --details --verbose
 
 # Paginate through results
 inngest list --cursor "next-page-cursor"
+
+# JSON format with pagination metadata
+inngest list --status Failed --format json | jq '.has_more, .next_cursor'
+
+# Process JSON output with external tools
+inngest list --format json | jq '[.runs[] | {id: .run_id, status, function: .function_name}]'
 ```
 
 ### Watch Runs in Real-time
@@ -163,6 +191,10 @@ inngest cancel --app-id "my-app" --function "notify-user" \
 
 # Dry run (preview what would be cancelled)
 inngest cancel --app-id "my-app" --function "send-email" --dry-run
+
+# JSON output for cancel operations
+inngest cancel --run 01HWAVJ8ASQ5 --yes --format json
+inngest cancel --app-id "my-app" --function "send-email" --dry-run --format json
 ```
 
 ### View Job Details
@@ -173,6 +205,9 @@ inngest jobs 01K4ZAM6W753HATTAQ53E8YJ2T
 
 # Get job details using partial ID from table
 inngest jobs HATTAQ53E8YJ2T
+
+# JSON format for structured job data
+inngest jobs 01K4ZAM6W753HAT --format json | jq '.jobs[] | {id, step, status}'
 ```
 
 ### Check Cancellation Status
@@ -180,6 +215,9 @@ inngest jobs HATTAQ53E8YJ2T
 ```bash
 # Check the status of a bulk cancellation
 inngest cancellation-status 01HWAVJ8ASQ5C3FXV32JS9DV9Q
+
+# JSON format for monitoring cancellation progress
+inngest cancellation-status 01HWAVJ8ASQ5 --format json | jq '.cancelled_count'
 ```
 
 ## Debug and Performance Monitoring

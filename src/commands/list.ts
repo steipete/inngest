@@ -7,6 +7,9 @@ import {
   displayInfo,
   displayRunDetails,
   displayRunsTable,
+  outputJSON,
+  prepareRunDetailsForJSON,
+  prepareRunsForJSON,
 } from '../utils/display.js';
 
 export function createListCommand(): Command {
@@ -71,6 +74,7 @@ export function createListCommand(): Command {
     .option('--all', 'Fetch all results (ignores limit, may take time)')
     .option('--details', 'Show full details for each run instead of table format')
     .option('-v, --verbose', 'Show detailed debug information during execution')
+    .option('--format <format>', 'Output format: table or json (default: table)', 'table')
     .action(async (options, command) => {
       try {
         const globalOpts = command.parent?.opts() || {};
@@ -86,9 +90,13 @@ export function createListCommand(): Command {
 
         const functionFilter = options.function || options.functionName;
         const envIndicator = globalOpts.env === 'dev' ? ' [DEV]' : '';
-        displayInfo(
-          `Fetching runs${options.status ? ` with status: ${options.status}` : ''}${functionFilter ? ` for function: ${functionFilter}` : ''}${envIndicator}...`
-        );
+        const isJsonFormat = options.format === 'json';
+
+        if (!isJsonFormat) {
+          displayInfo(
+            `Fetching runs${options.status ? ` with status: ${options.status}` : ''}${functionFilter ? ` for function: ${functionFilter}` : ''}${envIndicator}...`
+          );
+        }
 
         while (hasMore) {
           const response = await client.listRuns({
@@ -105,37 +113,68 @@ export function createListCommand(): Command {
 
           if (options.all && response.has_more && response.cursor) {
             cursor = response.cursor;
-            displayInfo(`Fetched ${allRuns.length} runs, continuing...`);
+            if (!isJsonFormat) {
+              displayInfo(`Fetched ${allRuns.length} runs, continuing...`);
+            }
           } else {
             hasMore = false;
           }
 
           // Safety break for --all option
           if (options.all && allRuns.length >= 1000) {
-            displayInfo('Reached maximum of 1000 runs for safety');
+            if (!isJsonFormat) {
+              displayInfo('Reached maximum of 1000 runs for safety');
+            }
             break;
           }
         }
 
-        if (options.details) {
-          // Show full details for each run
-          for (let i = 0; i < allRuns.length; i++) {
-            const run = allRuns[i];
-            if (i > 0) console.log('\n'); // Add spacing between runs
-            await displayRunDetails(run, client);
+        if (isJsonFormat) {
+          // JSON format output
+          if (options.details) {
+            // Show full details for each run in JSON
+            const detailedRuns = [];
+            for (const run of allRuns) {
+              const inputData = client.getInputDataForRun(run.run_id) || null;
+              detailedRuns.push(prepareRunDetailsForJSON(run, inputData));
+            }
+            outputJSON({
+              runs: detailedRuns,
+              total: allRuns.length,
+              has_more: !options.all && hasMore,
+              next_cursor: !options.all && hasMore ? cursor : null,
+            });
+          } else {
+            // Simple JSON format
+            outputJSON({
+              runs: prepareRunsForJSON(allRuns),
+              total: allRuns.length,
+              has_more: !options.all && hasMore,
+              next_cursor: !options.all && hasMore ? cursor : null,
+            });
           }
         } else {
-          // Show table format
-          displayRunsTable(allRuns);
-        }
+          // Table format output (existing behavior)
+          if (options.details) {
+            // Show full details for each run
+            for (let i = 0; i < allRuns.length; i++) {
+              const run = allRuns[i];
+              if (i > 0) console.log('\n'); // Add spacing between runs
+              await displayRunDetails(run, client);
+            }
+          } else {
+            // Show table format
+            displayRunsTable(allRuns);
+          }
 
-        if (!options.all && hasMore) {
-          console.log(
-            `\n${displayInfo.toString().replace('ℹ ', '')}Use --cursor ${cursor} to get next page`
-          );
-        }
+          if (!options.all && hasMore) {
+            console.log(
+              `\n${displayInfo.toString().replace('ℹ ', '')}Use --cursor ${cursor} to get next page`
+            );
+          }
 
-        displayInfo(`Total: ${allRuns.length} run(s)`);
+          displayInfo(`Total: ${allRuns.length} run(s)`);
+        }
       } catch (error) {
         displayError(error as Error);
         process.exit(1);

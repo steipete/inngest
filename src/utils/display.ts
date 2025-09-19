@@ -202,3 +202,50 @@ export function displayInfo(message: string): void {
 export function displayWarning(message: string): void {
   console.log(chalk.yellow('⚠'), message);
 }
+
+export function outputJSON(data: unknown): void {
+  console.log(JSON.stringify(data, null, 2));
+}
+
+export function prepareRunsForJSON(runs: InngestRun[]): unknown {
+  return runs.map(run => ({
+    run_id: run.run_id,
+    status: run.status,
+    function_id: run.function_id,
+    function_name: run.function_name,
+    function_version: run.function_version,
+    event_id: run.event_id,
+    run_started_at: run.run_started_at,
+    ended_at: run.ended_at,
+    output: run.output,
+  }));
+}
+
+export function prepareRunDetailsForJSON(
+  run: InngestRun | InngestRunWithEvent,
+  inputData?: unknown
+): unknown {
+  return {
+    run_id: run.run_id,
+    status: run.status,
+    function_id: run.function_id,
+    function_name: run.function_name,
+    function_version: run.function_version,
+    event_id: run.event_id,
+    run_started_at: run.run_started_at,
+    ended_at: run.ended_at,
+    output: run.output,
+    input_data: inputData || null,
+  };
+}
+
+export function prepareJobsForJSON(jobs: InngestJob[]): unknown {
+  return jobs.map(job => ({
+    id: job.id,
+    step: job.step,
+    status: job.status,
+    started_at: job.started_at,
+    ended_at: job.ended_at,
+    output: job.output,
+  }));
+}

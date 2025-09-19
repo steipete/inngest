@@ -1,7 +1,13 @@
 import { Command } from 'commander';
 import { InngestClient } from '../api/client.js';
 import { getConfig, validateRunId } from '../utils/config.js';
-import { displayError, displayInfo, displaySuccess, displayWarning } from '../utils/display.js';
+import {
+  displayError,
+  displayInfo,
+  displaySuccess,
+  displayWarning,
+  outputJSON,
+} from '../utils/display.js';
 
 export function createCancelCommand(): Command {
   const command = new Command('cancel')
@@ -14,6 +20,7 @@ export function createCancelCommand(): Command {
     .option('--if <expression>', 'CEL expression for conditional cancellation')
     .option('--dry-run', 'Show what would be cancelled without actually cancelling')
     .option('-y, --yes', 'Skip confirmation prompt')
+    .option('--format <format>', 'Output format: table or json (default: table)', 'table')
     .action(async options => {
       try {
         const config = getConfig();
@@ -30,7 +37,11 @@ export function createCancelCommand(): Command {
           }
 
           if (options.dryRun) {
-            displayInfo(`Would cancel run: ${options.run}`);
+            if (options.format === 'json') {
+              outputJSON({ action: 'would_cancel', run_id: options.run });
+            } else {
+              displayInfo(`Would cancel run: ${options.run}`);
+            }
             return;
           }
 
@@ -41,7 +52,11 @@ export function createCancelCommand(): Command {
           }
 
           await client.cancelRun(options.run);
-          displaySuccess(`Cancelled run: ${options.run}`);
+          if (options.format === 'json') {
+            outputJSON({ action: 'cancelled', run_id: options.run });
+          } else {
+            displaySuccess(`Cancelled run: ${options.run}`);
+          }
           return;
         }
 
@@ -72,8 +87,12 @@ export function createCancelCommand(): Command {
         };
 
         if (options.dryRun) {
-          displayInfo('Would perform bulk cancellation with:');
-          console.log(JSON.stringify(cancellationRequest, null, 2));
+          if (options.format === 'json') {
+            outputJSON({ action: 'would_bulk_cancel', request: cancellationRequest });
+          } else {
+            displayInfo('Would perform bulk cancellation with:');
+            console.log(JSON.stringify(cancellationRequest, null, 2));
+          }
           return;
         }
 
@@ -86,11 +105,19 @@ export function createCancelCommand(): Command {
         }
 
         const response = await client.bulkCancel(cancellationRequest);
-        displaySuccess(`Bulk cancellation initiated: ${response.cancellation_id}`);
-        displayInfo(`Status: ${response.status}`);
-        displayInfo(
-          `Check cancellation status with: inngest cancellation-status ${response.cancellation_id}`
-        );
+        if (options.format === 'json') {
+          outputJSON({
+            action: 'bulk_cancelled',
+            cancellation_id: response.cancellation_id,
+            status: response.status,
+          });
+        } else {
+          displaySuccess(`Bulk cancellation initiated: ${response.cancellation_id}`);
+          displayInfo(`Status: ${response.status}`);
+          displayInfo(
+            `Check cancellation status with: inngest cancellation-status ${response.cancellation_id}`
+          );
+        }
       } catch (error) {
         displayError(error as Error);
         process.exit(1);
