@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 // Helper to run the CLI and capture output

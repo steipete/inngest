@@ -36,15 +36,15 @@ program
     return port;
   })
   .configureOutput({
-    writeOut: (str) => process.stdout.write(str),
-    writeErr: (str) => process.stderr.write(str),
+    writeOut: str => process.stdout.write(str),
+    writeErr: str => process.stderr.write(str),
     outputError: (str, write) => {
       // Commander calls this for help "errors" - suppress them
       if (str.includes('(outputHelp)')) {
         return;
       }
       write(chalk.red(str));
-    }
+    },
   });
 
 // Add commands
@@ -87,7 +87,7 @@ process.on('unhandledRejection', (reason, promise) => {
 // Handle uncaught exceptions (but not help)
 process.on('uncaughtException', error => {
   // Don't show error for help output
-  if (error.message && error.message.includes('(outputHelp)')) {
+  if (error.message?.includes('(outputHelp)')) {
     process.exit(0);
   }
   displayError(error);

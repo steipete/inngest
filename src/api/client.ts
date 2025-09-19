@@ -384,10 +384,7 @@ export class InngestClient {
         const direct = payload as Record<string, unknown>;
 
         // Newer API responses already expose cancellation_id + status at the top level.
-        if (
-          typeof direct.cancellation_id === 'string' &&
-          typeof direct.status === 'string'
-        ) {
+        if (typeof direct.cancellation_id === 'string' && typeof direct.status === 'string') {
           return direct;
         }
 
@@ -413,10 +410,7 @@ export class InngestClient {
       } satisfies CancellationResponse;
     })();
 
-    return this.validateResponse<CancellationResponse>(
-      normalized,
-      CancellationResponseSchema
-    );
+    return this.validateResponse<CancellationResponse>(normalized, CancellationResponseSchema);
   }
 
   async getCancellationStatus(cancellationId: string): Promise<CancellationStatus> {
