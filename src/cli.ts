@@ -71,7 +71,8 @@ program.exitOverride(err => {
 
 // Show help if no command provided
 if (process.argv.length <= 2) {
-  program.help();
+  program.outputHelp();
+  process.exit(0);
 }
 
 // Parse arguments
