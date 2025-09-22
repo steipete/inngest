@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "inngest": "./dist/cli.js"
+    "inngest": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

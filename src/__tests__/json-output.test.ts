@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { InngestJob, InngestRun } from '../api/types.js';
 import {
   outputJSON,
   prepareJobsForJSON,
   prepareRunDetailsForJSON,
   prepareRunsForJSON,
 } from '../utils/display.js';
-import type { InngestJob, InngestRun } from '../api/types.js';
 
 // Mock console.log for testing JSON output
 vi.spyOn(console, 'log').mockImplementation(() => {});
