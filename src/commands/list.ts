@@ -14,6 +14,7 @@ import {
 
 export function createListCommand(): Command {
   const command = new Command('list')
+    .aliases(['runs'])
     .description('List runs with optional filtering')
     .option(
       '-s, --status <status>',

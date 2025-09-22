@@ -60,6 +60,14 @@ describe('CLI Behavior', () => {
       expect(result.stdout).toContain('Usage: inngest list');
       expect(result.stdout).toContain('List runs with optional filtering');
     });
+
+    it('should support runs alias for list command', async () => {
+      const result = await runCLI(['runs', '--help']);
+
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain('Usage: inngest list');
+      expect(result.stdout).toContain('List runs with optional filtering');
+    });
   });
 
   describe('Version command', () => {
