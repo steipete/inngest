@@ -48,6 +48,9 @@ inngest list --env dev --status Failed
 
 # Custom dev server port
 inngest list --env dev --dev-port 8080 --status Failed
+
+# Branch/Preview environment (requires slug)
+INNGEST_SIGNING_KEY=signkey-branch-... inngest list --env-slug branch/my-feature --status Failed
 ```
 
 #### Environment Variables
@@ -55,10 +58,12 @@ inngest list --env dev --dev-port 8080 --status Failed
 - `INNGEST_API_URL` - Custom production API URL (optional)
 - `INNGEST_DEV_SERVER_URL` - Custom dev server URL (optional)
 - `INNGEST_DEV_SERVER_PORT` - Default dev server port (optional)
+- `INNGEST_ENV` - Environment slug (e.g. `production`, `branch/my-feature`). Useful for branch environments.
 
 #### Global Options
 - `--env <environment>` - Switch between `prod` (default) and `dev`
 - `--dev-port <port>` - Override dev server port (default: 8288)
+- `--env-slug <slug>` - Override the environment slug sent to Inngest (same as `INNGEST_ENV`)
 - `-V, --version` - Display version number
 
 ## Usage

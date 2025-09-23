@@ -85,6 +85,7 @@ export const ApiErrorSchema = z.object({
 export const ApiConfigSchema = z.object({
   signingKey: z.string().min(1, 'Signing key is required'),
   baseUrl: z.string().url('Invalid base URL format').optional(),
+  environmentSlug: z.string().min(1, 'Environment slug must be a non-empty string').optional(),
 });
 
 // Type inference from schemas

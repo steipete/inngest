@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name('inngest')
   .description('CLI for managing Inngest jobs - watch, cancel, filter by status')
-  .version('0.9.3')
+  .version('0.9.4')
   .option(
     '--env <environment>',
     'Environment to connect to',
@@ -27,6 +27,11 @@ program
       return value as 'prod' | 'dev';
     },
     'prod'
+  )
+  .option(
+    '--env-slug <slug>',
+    'Inngest environment slug (e.g. production, branch/my-feature). Overrides INNGEST_ENV environment variable.',
+    value => value.trim()
   )
   .option('--dev-port <port>', 'Port for dev server (default: 8288)', value => {
     const port = parseInt(value, 10);

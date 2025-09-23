@@ -107,6 +107,11 @@ describe('CLI Behavior', () => {
       const resultDev = await runCLI(['--env', 'dev', '--help']);
       expect(resultDev.code).toBe(0);
     });
+
+    it('should accept environment slug option', async () => {
+      const result = await runCLI(['--env-slug', 'branch/my-test', '--help']);
+      expect(result.code).toBe(0);
+    });
   });
 
   describe('Dev port option', () => {

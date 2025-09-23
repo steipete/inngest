@@ -13,6 +13,7 @@ const EnvSchema = z.object({
   INNGEST_API_URL: z.string().url().optional(),
   INNGEST_DEV_SERVER_URL: z.string().url().optional(),
   INNGEST_DEV_SERVER_PORT: z.string().optional(),
+  INNGEST_ENV: z.string().min(1).optional(),
 });
 
 export type Environment = 'prod' | 'dev';
@@ -20,6 +21,7 @@ export type Environment = 'prod' | 'dev';
 export interface ConfigOptions {
   env?: Environment;
   devPort?: number;
+  environmentSlug?: string;
 }
 
 export function getConfig(options: ConfigOptions = {}): ApiConfig {
@@ -42,6 +44,7 @@ export function getConfig(options: ConfigOptions = {}): ApiConfig {
     INNGEST_API_URL: process.env.INNGEST_API_URL,
     INNGEST_DEV_SERVER_URL: process.env.INNGEST_DEV_SERVER_URL,
     INNGEST_DEV_SERVER_PORT: process.env.INNGEST_DEV_SERVER_PORT,
+    INNGEST_ENV: process.env.INNGEST_ENV,
   });
 
   if (!envResult.success) {
@@ -69,9 +72,12 @@ export function getConfig(options: ConfigOptions = {}): ApiConfig {
     baseUrl = envResult.data.INNGEST_API_URL || 'https://api.inngest.com';
   }
 
+  const environmentSlug = options.environmentSlug ?? envResult.data.INNGEST_ENV ?? undefined;
+
   const configData = {
     signingKey: envResult.data.INNGEST_SIGNING_KEY,
     baseUrl,
+    environmentSlug,
   };
 
   // Validate the final config

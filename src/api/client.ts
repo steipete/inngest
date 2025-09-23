@@ -34,12 +34,18 @@ export class InngestClient {
     // Validate config using Zod
     const validatedConfig = ApiConfigSchema.parse(config);
 
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${validatedConfig.signingKey}`,
+      'Content-Type': 'application/json',
+    };
+
+    if (validatedConfig.environmentSlug) {
+      headers['X-Inngest-Env'] = validatedConfig.environmentSlug;
+    }
+
     this.client = axios.create({
       baseURL: validatedConfig.baseUrl || 'https://api.inngest.com',
-      headers: {
-        Authorization: `Bearer ${validatedConfig.signingKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       timeout: 30000,
     });
 

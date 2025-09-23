@@ -23,6 +23,7 @@ export function createStatusCommand(): Command {
         const config = getConfig({
           env: globalOpts.env as Environment,
           devPort: globalOpts.devPort,
+          environmentSlug: globalOpts.envSlug,
         });
         const client = new InngestClient(config);
 
