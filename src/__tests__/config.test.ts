@@ -50,6 +50,24 @@ describe('Config Utils', () => {
 
       expect(() => getConfig()).toThrow(/Environment validation failed/);
     });
+
+    it('should read environment slug from env variable', () => {
+      process.env.INNGEST_SIGNING_KEY = 'test-key';
+      process.env.INNGEST_ENV = 'branch/my-feature';
+
+      const config = getConfig();
+
+      expect(config.environmentSlug).toBe('branch/my-feature');
+    });
+
+    it('should prefer explicit environment slug option', () => {
+      process.env.INNGEST_SIGNING_KEY = 'test-key';
+      process.env.INNGEST_ENV = 'branch/from-env';
+
+      const config = getConfig({ environmentSlug: 'branch/from-option' });
+
+      expect(config.environmentSlug).toBe('branch/from-option');
+    });
   });
 
   describe('validateRunId', () => {
