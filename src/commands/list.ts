@@ -11,6 +11,7 @@ import {
   prepareRunDetailsForJSON,
   prepareRunsForJSON,
 } from '../utils/display.js';
+import { collectRuns } from '../utils/run-collection.js';
 
 export function createListCommand(): Command {
   const command = new Command('list')
@@ -86,11 +87,6 @@ export function createListCommand(): Command {
         });
         const client = new InngestClient(config, { verbose: options.verbose });
 
-        let allRuns: InngestRun[] = [];
-        let cursorForRequest = options.cursor;
-        let nextCursor: string | null = null;
-        let hasMoreAvailable = false;
-
         const functionFilter = options.function || options.functionName;
         const envIndicator = globalOpts.env === 'dev' ? ' [DEV]' : '';
         const isJsonFormat = options.format === 'json';
@@ -101,89 +97,50 @@ export function createListCommand(): Command {
           );
         }
 
-        while (true) {
-          const response = await client.listRuns({
+        const {
+          runs: allRuns,
+          hasMore,
+          nextCursor,
+        } = await collectRuns(
+          client,
+          {
             status: options.status,
             function_id: functionFilter,
-            cursor: cursorForRequest,
-            limit: options.all ? 100 : options.limit,
+            cursor: options.cursor,
+            limit: options.limit,
             after: options.after,
             before: options.before,
             hours: options.hours,
-          });
-
-          allRuns = allRuns.concat(response.data);
-
-          if (response.cursor) {
-            nextCursor = response.cursor;
+            fetchAll: Boolean(options.all),
+          },
+          {
+            onProgress: message => {
+              if (!isJsonFormat) {
+                displayInfo(message);
+              }
+            },
           }
+        );
 
-          hasMoreAvailable = Boolean(response.has_more && response.cursor);
-
-          if (!(options.all && response.has_more && response.cursor)) {
-            break;
-          }
-
-          cursorForRequest = response.cursor;
-
-          if (!isJsonFormat) {
-            displayInfo(`Fetched ${allRuns.length} runs, continuing...`);
-          }
-
-          // Safety break for --all option
-          if (allRuns.length >= 1000) {
-            hasMoreAvailable = true;
-            if (!isJsonFormat) {
-              displayInfo('Reached maximum of 1000 runs for safety');
-            }
-            break;
-          }
-        }
+        const outputOptions = { details: Boolean(options.details), all: Boolean(options.all) };
 
         if (isJsonFormat) {
-          // JSON format output
-          if (options.details) {
-            // Show full details for each run in JSON
-            const detailedRuns = [];
-            for (const run of allRuns) {
-              const inputData = client.getInputDataForRun(run.run_id) || null;
-              detailedRuns.push(prepareRunDetailsForJSON(run, inputData));
-            }
-            outputJSON({
-              runs: detailedRuns,
-              total: allRuns.length,
-              has_more: hasMoreAvailable,
-              next_cursor: hasMoreAvailable ? nextCursor : null,
-            });
-          } else {
-            // Simple JSON format
-            outputJSON({
-              runs: prepareRunsForJSON(allRuns),
-              total: allRuns.length,
-              has_more: hasMoreAvailable,
-              next_cursor: hasMoreAvailable ? nextCursor : null,
-            });
-          }
+          await outputRunsAsJson({
+            runs: allRuns,
+            client,
+            options: outputOptions,
+            hasMore,
+            nextCursor,
+          });
         } else {
-          // Table format output (existing behavior)
-          if (options.details) {
-            // Show full details for each run
-            for (let i = 0; i < allRuns.length; i++) {
-              const run = allRuns[i];
-              if (i > 0) console.log('\n'); // Add spacing between runs
-              await displayRunDetails(run, client);
-            }
-          } else {
-            // Show table format
-            displayRunsTable(allRuns);
-          }
-
-          if (!options.all && hasMoreAvailable && nextCursor) {
-            console.log('');
-            displayInfo(`Use --cursor ${nextCursor} to get next page`);
-          }
-
-          displayInfo(`Total: ${allRuns.length} run(s)`);
+          await outputRunsAsTable({
+            runs: allRuns,
+            client,
+            options: outputOptions,
+            hasMore,
+            nextCursor,
+            displayInfo,
+          });
         }
       } catch (error) {
         displayError(error as Error);
@@ -192,4 +149,71 @@ export function createListCommand(): Command {
     });
 
   return command;
+}
+
+interface OutputOptions {
+  details: boolean;
+  all: boolean;
+}
+
+interface JsonOutputContext {
+  runs: InngestRun[];
+  client: InngestClient;
+  options: OutputOptions;
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+interface TableOutputContext extends JsonOutputContext {
+  displayInfo: typeof displayInfo;
+}
+
+function outputRunsAsJson({ runs, client, options, hasMore, nextCursor }: JsonOutputContext): void {
+  if (options.details) {
+    const detailedRuns = runs.map(run => {
+      const inputData = client.getInputDataForRun(run.run_id) || null;
+      return prepareRunDetailsForJSON(run, inputData);
+    });
+
+    outputJSON({
+      runs: detailedRuns,
+      total: runs.length,
+      has_more: hasMore,
+      next_cursor: hasMore ? nextCursor : null,
+    });
+    return;
+  }
+
+  outputJSON({
+    runs: prepareRunsForJSON(runs),
+    total: runs.length,
+    has_more: hasMore,
+    next_cursor: hasMore ? nextCursor : null,
+  });
+}
+
+async function outputRunsAsTable({
+  runs,
+  client,
+  options,
+  hasMore,
+  nextCursor,
+  displayInfo,
+}: TableOutputContext): Promise<void> {
+  if (options.details) {
+    for (let i = 0; i < runs.length; i++) {
+      const run = runs[i];
+      if (i > 0) console.log('\n');
+      await displayRunDetails(run, client);
+    }
+  } else {
+    displayRunsTable(runs);
+  }
+
+  if (!options.all && hasMore && nextCursor) {
+    console.log('');
+    displayInfo(`Use --cursor ${nextCursor} to get next page`);
+  }
+
+  displayInfo(`Total: ${runs.length} run(s)`);
 }

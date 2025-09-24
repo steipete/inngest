@@ -219,151 +219,13 @@ export class InngestClient {
       hours?: number;
     } = {}
   ): Promise<ListRunsResponse> {
-    // Get events - use larger limit and broader time range when filtering by status
-    const eventsParams = new URLSearchParams();
-    const eventLimit = options.status ? 100 : options.limit || 50; // Use API maximum of 100 for status searches
-    eventsParams.append('limit', eventLimit.toString());
-    if (options.cursor) eventsParams.append('cursor', options.cursor);
+    const eventsParams = this.buildEventsParams(options);
+    const { events: initialEvents, response: initialResponse } =
+      await this.fetchInitialEvents(eventsParams);
+    const events = await this.expandEvents(initialEvents, eventsParams, initialResponse, options);
+    const runs = await this.enrichRunsFromEvents(events, options);
 
-    // Handle time range parameters
-    if (options.after) {
-      eventsParams.append('received_after', options.after);
-    } else if (options.before) {
-      eventsParams.append('received_before', options.before);
-    } else if (options.hours) {
-      const hoursAgo = new Date();
-      hoursAgo.setHours(hoursAgo.getHours() - options.hours);
-      eventsParams.append('received_after', hoursAgo.toISOString());
-    } else if (options.status) {
-      // When only status is specified, look back much further to find failed/cancelled runs
-      const monthsAgo = new Date();
-      monthsAgo.setMonth(monthsAgo.getMonth() - 6); // Look back 6 months
-      eventsParams.append('received_after', monthsAgo.toISOString());
-      this.debug(`Status search going back to: ${monthsAgo.toISOString()}`);
-    }
-
-    // Note: We don't pre-filter events by status because event names don't always
-    // match final run status (e.g., failed runs can be later cancelled)
-    // Instead, we filter by status after fetching the actual run details
-
-    // Implement streaming search - process first page immediately, then continue fetching
-    const initialEventsResponse = await this.client.get(`/v1/events?${eventsParams}`);
-    let events = initialEventsResponse.data.data || [];
-    this.debug(`Initial page loaded: ${events.length} events`);
-    this.debug(
-      `Response metadata: ${JSON.stringify(initialEventsResponse.data.metadata, null, 2)}`
-    );
-
-    // If filtering by status, try time-based chunking to get more historical data
-    if (options.status) {
-      const timeBasedEvents = await this.fetchTimeBasedChunks(eventsParams, {
-        ...options,
-        maxResults: Math.max((options.limit || 20) * 5, 200), // Request 5x the limit to account for filtering
-      });
-      events = events.concat(timeBasedEvents);
-      this.debug(`Total events after time-based search: ${events.length}`);
-
-      // Also try cursor-based pagination if available
-      if (events.length > 0) {
-        const additionalEvents = await this.fetchAdditionalPages(
-          eventsParams,
-          initialEventsResponse
-        );
-        events = events.concat(additionalEvents);
-        this.debug(`Total events after all pagination: ${events.length}`);
-      }
-    }
-
-    // Get runs from events that have run_id and capture function names
-    const runs: InngestRun[] = [];
-    const seenRunIds = new Set<string>();
-    const functionNames = new Map<string, string>(); // runId -> functionName
-
-    // First pass: collect function names and event data from events
-    const eventDataMap = new Map<string, unknown>(); // runId -> original event data
-    for (const event of events) {
-      const eventRecord = event as Record<string, unknown>;
-      if (eventRecord.data && typeof eventRecord.data === 'object' && eventRecord.data !== null) {
-        const data = eventRecord.data as Record<string, unknown>;
-        if (typeof data.run_id === 'string' && typeof data.function_id === 'string') {
-          functionNames.set(data.run_id, data.function_id);
-          // Store the full event for later use - this contains the input data
-          eventDataMap.set(data.run_id, event);
-        }
-      }
-    }
-
-    for (const event of events) {
-      const eventRecord = event as Record<string, unknown>;
-      if (eventRecord.data && typeof eventRecord.data === 'object' && eventRecord.data !== null) {
-        const data = eventRecord.data as Record<string, unknown>;
-        if (typeof data.run_id === 'string') {
-          const runId = data.run_id;
-          if (!seenRunIds.has(runId)) {
-            seenRunIds.add(runId);
-            try {
-              const run = await this.getRun(runId);
-
-              // Add function name and event data
-              const functionName = functionNames.get(runId);
-              const eventData = eventDataMap.get(runId);
-              // Extract the actual input data from the event structure
-              let inputData = null;
-              const eventDataRecord = eventData as Record<string, unknown>;
-              if (
-                eventDataRecord?.data &&
-                typeof eventDataRecord.data === 'object' &&
-                eventDataRecord.data !== null
-              ) {
-                const dataRecord = eventDataRecord.data as Record<string, unknown>;
-                // The event data contains an 'event' object with the actual input data
-                const eventInfo =
-                  dataRecord.event ||
-                  (Array.isArray(dataRecord.events) ? dataRecord.events[0] : null);
-                if (eventInfo && typeof eventInfo === 'object' && eventInfo !== null) {
-                  const eventInfoRecord = eventInfo as Record<string, unknown>;
-                  if (eventInfoRecord.data) {
-                    inputData = eventInfoRecord.data;
-                  }
-                }
-              }
-
-              // Cache the input data for this run
-              if (inputData) {
-                this.inputDataCache.set(runId, inputData);
-              }
-
-              const enrichedRun = {
-                ...run,
-                function_name: functionName,
-              };
-
-              // Apply filters (check both function_id and function_name)
-              if (options.status && enrichedRun.status !== options.status) continue;
-              if (options.function_id) {
-                const matchesFunctionId = enrichedRun.function_id === options.function_id;
-                const matchesFunctionName = enrichedRun.function_name?.includes(
-                  options.function_id
-                );
-                if (!matchesFunctionId && !matchesFunctionName) continue;
-              }
-
-              runs.push(enrichedRun);
-            } catch (_error) {}
-          }
-        }
-      }
-    }
-
-    const result = {
-      data: runs.slice(0, options.limit || 20),
-      metadata: {
-        fetched_at: new Date().toISOString(),
-        cached_until: null,
-      },
-    };
-
-    return this.validateResponse<ListRunsResponse>(result, ListRunsResponseSchema);
+    return this.buildRunsResponse(runs, options.limit);
   }
 
   async getJobs(runId: string): Promise<InngestJob[]> {
@@ -552,5 +414,216 @@ export class InngestClient {
     }
 
     return allEvents.slice(0, maxResults);
+  }
+
+  private buildEventsParams(options: {
+    status?: string;
+    function_id?: string;
+    cursor?: string;
+    limit?: number;
+    after?: string;
+    before?: string;
+    hours?: number;
+  }): URLSearchParams {
+    const eventsParams = new URLSearchParams();
+    const eventLimit = options.status ? 100 : options.limit || 50;
+    eventsParams.append('limit', eventLimit.toString());
+    if (options.cursor) eventsParams.append('cursor', options.cursor);
+
+    if (options.after) {
+      eventsParams.append('received_after', options.after);
+    } else if (options.before) {
+      eventsParams.append('received_before', options.before);
+    } else if (options.hours) {
+      const hoursAgo = new Date();
+      hoursAgo.setHours(hoursAgo.getHours() - options.hours);
+      eventsParams.append('received_after', hoursAgo.toISOString());
+    } else if (options.status) {
+      const monthsAgo = new Date();
+      monthsAgo.setMonth(monthsAgo.getMonth() - 6);
+      eventsParams.append('received_after', monthsAgo.toISOString());
+      this.debug(`Status search going back to: ${monthsAgo.toISOString()}`);
+    }
+
+    return eventsParams;
+  }
+
+  private async fetchInitialEvents(eventsParams: URLSearchParams): Promise<{
+    events: unknown[];
+    response: { data: { data?: unknown[]; metadata?: unknown } };
+  }> {
+    const response = await this.client.get(`/v1/events?${eventsParams}`);
+    const events = response.data.data || [];
+    this.debug(`Initial page loaded: ${events.length} events`);
+    this.debug(`Response metadata: ${JSON.stringify(response.data.metadata, null, 2)}`);
+    return { events, response };
+  }
+
+  private async expandEvents(
+    initialEvents: unknown[],
+    eventsParams: URLSearchParams,
+    initialResponse: { data: { metadata?: { next_cursor?: string } } },
+    options: {
+      status?: string;
+      function_id?: string;
+      limit?: number;
+      after?: string;
+      before?: string;
+      hours?: number;
+    }
+  ): Promise<unknown[]> {
+    const combinedEvents = [...initialEvents];
+
+    if (!options.status) {
+      return combinedEvents;
+    }
+
+    const timeBasedEvents = await this.fetchTimeBasedChunks(eventsParams, {
+      ...options,
+      maxResults: Math.max((options.limit || 20) * 5, 200),
+    });
+    combinedEvents.push(...timeBasedEvents);
+    this.debug(`Total events after time-based search: ${combinedEvents.length}`);
+
+    if (combinedEvents.length > 0) {
+      const additionalEvents = await this.fetchAdditionalPages(eventsParams, initialResponse);
+      combinedEvents.push(...additionalEvents);
+      this.debug(`Total events after all pagination: ${combinedEvents.length}`);
+    }
+
+    return combinedEvents;
+  }
+
+  private async enrichRunsFromEvents(
+    events: unknown[],
+    options: {
+      status?: string;
+      function_id?: string;
+    }
+  ): Promise<InngestRun[]> {
+    const runs: InngestRun[] = [];
+    const seenRunIds = new Set<string>();
+    const { functionNames, eventDataMap } = this.collectFunctionMetadata(events);
+
+    for (const event of events) {
+      const runId = this.extractRunId(event);
+      if (!runId || seenRunIds.has(runId)) continue;
+      seenRunIds.add(runId);
+
+      try {
+        const run = await this.getRun(runId);
+        const functionName = functionNames.get(runId);
+        const eventData = eventDataMap.get(runId);
+        const inputData = this.extractInputData(eventData);
+
+        if (inputData) {
+          this.inputDataCache.set(runId, inputData);
+        }
+
+        const enrichedRun: InngestRun = {
+          ...run,
+          function_name: functionName,
+        };
+
+        if (!this.runMatchesFilters(enrichedRun, options)) continue;
+
+        runs.push(enrichedRun);
+      } catch (_error) {
+        // Ignore errors for individual runs and continue processing others
+      }
+    }
+
+    return runs;
+  }
+
+  private collectFunctionMetadata(events: unknown[]): {
+    functionNames: Map<string, string>;
+    eventDataMap: Map<string, unknown>;
+  } {
+    const functionNames = new Map<string, string>();
+    const eventDataMap = new Map<string, unknown>();
+
+    for (const event of events) {
+      const eventRecord = event as Record<string, unknown>;
+      if (!eventRecord?.data || typeof eventRecord.data !== 'object' || eventRecord.data === null) {
+        continue;
+      }
+
+      const data = eventRecord.data as Record<string, unknown>;
+      const runId = typeof data.run_id === 'string' ? data.run_id : null;
+      const functionId = typeof data.function_id === 'string' ? data.function_id : null;
+
+      if (runId && functionId) {
+        functionNames.set(runId, functionId);
+        eventDataMap.set(runId, event);
+      }
+    }
+
+    return { functionNames, eventDataMap };
+  }
+
+  private extractRunId(event: unknown): string | null {
+    if (!event || typeof event !== 'object') {
+      return null;
+    }
+
+    const eventRecord = event as Record<string, unknown>;
+    if (!eventRecord.data || typeof eventRecord.data !== 'object' || eventRecord.data === null) {
+      return null;
+    }
+
+    const data = eventRecord.data as Record<string, unknown>;
+    return typeof data.run_id === 'string' ? data.run_id : null;
+  }
+
+  private extractInputData(eventData: unknown): unknown {
+    if (!eventData || typeof eventData !== 'object') {
+      return null;
+    }
+
+    const eventRecord = eventData as Record<string, unknown>;
+    if (!eventRecord.data || typeof eventRecord.data !== 'object' || eventRecord.data === null) {
+      return null;
+    }
+
+    const dataRecord = eventRecord.data as Record<string, unknown>;
+    const eventInfo =
+      dataRecord.event || (Array.isArray(dataRecord.events) ? dataRecord.events[0] : null);
+
+    if (!eventInfo || typeof eventInfo !== 'object') {
+      return null;
+    }
+
+    const eventInfoRecord = eventInfo as Record<string, unknown>;
+    return eventInfoRecord.data ?? null;
+  }
+
+  private runMatchesFilters(
+    run: InngestRun,
+    options: { status?: string; function_id?: string }
+  ): boolean {
+    if (options.status && run.status !== options.status) {
+      return false;
+    }
+
+    if (!options.function_id) {
+      return true;
+    }
+
+    const matchesFunctionId = run.function_id === options.function_id;
+    const matchesFunctionName = run.function_name?.includes(options.function_id) ?? false;
+    return matchesFunctionId || matchesFunctionName;
+  }
+
+  private buildRunsResponse(runs: InngestRun[], limit?: number): ListRunsResponse {
+    const result: ListRunsResponse = {
+      data: runs.slice(0, limit || 20),
+      metadata: {
+        fetched_at: new Date().toISOString(),
+        cached_until: null,
+      },
+    };
+
+    return this.validateResponse<ListRunsResponse>(result, ListRunsResponseSchema);
   }
 }

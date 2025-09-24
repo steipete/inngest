@@ -1,12 +1,13 @@
 import { Command } from 'commander';
 import { InngestClient } from '../api/client.js';
-import { type Environment, getConfig, validateRunId } from '../utils/config.js';
+import { type Environment, getConfig } from '../utils/config.js';
 import {
   displayError,
   displayJobsTable,
   outputJSON,
   prepareJobsForJSON,
 } from '../utils/display.js';
+import { ensureRun } from '../utils/run-helpers.js';
 
 export function createJobsCommand(): Command {
   const command = new Command('jobs')
@@ -23,28 +24,7 @@ export function createJobsCommand(): Command {
         });
         const client = new InngestClient(config);
 
-        // Try to find run by full or partial ID
-        let runId = runIdInput;
-        let run = null;
-
-        if (validateRunId(runIdInput)) {
-          // Full valid run ID
-          runId = runIdInput;
-        } else {
-          // Try partial ID search
-          run = await client.findRunByPartialId(runIdInput);
-          if (!run) {
-            throw new Error(
-              `Run not found with ID "${runIdInput}". ` +
-                `Please provide either:\n` +
-                `  • Full run ID (26 characters): 01K4Z25NHYZFHPRKED1TV8410X\n` +
-                `  • Partial ID from table (12+ characters): RKED1TV8410X\n\n` +
-                `💡 Use "inngest list" to see available runs.`
-            );
-          }
-          runId = run.run_id;
-        }
-
+        const { runId } = await ensureRun(client, runIdInput);
         const jobs = await client.getJobs(runId);
         if (options.format === 'json') {
           outputJSON({

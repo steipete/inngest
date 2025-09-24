@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import { InngestClient } from '../api/client.js';
-import type { InngestRun } from '../api/types.js';
-import { type Environment, getConfig, validateEventId, validateRunId } from '../utils/config.js';
+import { type Environment, getConfig, validateEventId } from '../utils/config.js';
 import {
   displayError,
   displayRunDetails,
@@ -10,6 +9,7 @@ import {
   prepareRunDetailsForJSON,
   prepareRunsForJSON,
 } from '../utils/display.js';
+import { ensureRun } from '../utils/run-helpers.js';
 
 export function createStatusCommand(): Command {
   const command = new Command('status')
@@ -36,25 +36,7 @@ export function createStatusCommand(): Command {
         }
 
         if (options.run) {
-          // Try to find run by full or partial ID
-          let run: InngestRun | null = null;
-
-          if (validateRunId(options.run)) {
-            // Full valid run ID
-            run = await client.getRun(options.run);
-          } else {
-            // Try partial ID search
-            run = await client.findRunByPartialId(options.run);
-            if (!run) {
-              throw new Error(
-                `Run not found with ID "${options.run}". ` +
-                  `Please provide either:\n` +
-                  `  • Full run ID (26 characters): 01K4Z25NHYZFHPRKED1TV8410X\n` +
-                  `  • Partial ID from table (12+ characters): RKED1TV8410X\n\n` +
-                  `💡 Use "inngest list" to see available runs.`
-              );
-            }
-          }
+          const { run } = await ensureRun(client, options.run);
 
           if (options.format === 'json') {
             const inputData = client.getInputDataForRun(run.run_id);

@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["src/**/*.ts", "src/**/*.js"],
+    "includes": ["src/**"],
     "experimentalScannerIgnores": ["node_modules/**", "dist/**", "*.config.js", "*.config.ts"]
   },
   "formatter": {
@@ -20,23 +20,55 @@
     "enabled": true,
     "rules": {
       "recommended": true,
-      "suspicious": {
-        "noExplicitAny": "error",
-        "noImplicitAnyLet": "error",
-        "useAwait": "error"
-      },
       "style": {
         "noNonNullAssertion": "warn",
         "useConst": "error",
-        "useNodejsImportProtocol": "error"
+        "useNodejsImportProtocol": "error",
+        "noCommonJs": "error",
+        "useDefaultParameterLast": "error",
+        "useTemplate": "error",
+        "useArrayLiterals": "error",
+        "useImportType": "error",
+        "useExportType": "error",
+        "useConsistentArrayType": "error",
+        "noParameterAssign": "error",
+        "useSingleVarDeclarator": "warn",
+        "useCollapsedElseIf": "warn",
+        "useForOf": "warn",
+        "useAsConstAssertion": "warn"
+      },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noImplicitAnyLet": "error",
+        "useAwait": "error",
+        "noDoubleEquals": "error",
+        "noPrototypeBuiltins": "warn",
+        "noShadowRestrictedNames": "warn",
+        "noGlobalAssign": "error",
+        "noImportAssign": "error",
+        "noAssignInExpressions": "warn",
+        "noSelfCompare": "error",
+        "noDuplicateObjectKeys": "error",
+        "noExtraNonNullAssertion": "error"
       },
       "correctness": {
         "noUnusedVariables": "error",
         "noUnusedImports": "error",
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "warn",
+        "noUnreachable": "error",
+        "noConstantCondition": "warn"
       },
       "complexity": {
-        "noBannedTypes": "error"
+        "noBannedTypes": "error",
+        "noExcessiveCognitiveComplexity": {
+          "level": "warn",
+          "options": {
+            "maxAllowedComplexity": 40
+          }
+        }
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "error"
       },
       "nursery": {
         "useSortedClasses": "off"
