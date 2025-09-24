@@ -1,6 +1,6 @@
 {
   "name": "@steipete/inngest",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "CLI for managing Inngest jobs - watch, cancel, filter by status",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
