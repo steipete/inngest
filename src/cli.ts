@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import chalk from 'chalk';
-import { Command } from 'commander';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import chalk from 'chalk';
+import { Command } from 'commander';
 import { createCancelCommand } from './commands/cancel.js';
 import { createCancellationStatusCommand } from './commands/cancellation-status.js';
 import { createJobsCommand } from './commands/jobs.js';
