@@ -2,6 +2,8 @@
 
 import chalk from 'chalk';
 import { Command } from 'commander';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { createCancelCommand } from './commands/cancel.js';
 import { createCancellationStatusCommand } from './commands/cancellation-status.js';
 import { createJobsCommand } from './commands/jobs.js';
@@ -12,10 +14,21 @@ import { displayError } from './utils/display.js';
 
 const program = new Command();
 
+const resolvedVersion = (() => {
+  try {
+    const pkgPath = path.resolve(__dirname, '../package.json');
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version?: string };
+    if (pkg.version) {
+      return pkg.version;
+    }
+  } catch (_error) {}
+  return 'unknown';
+})();
+
 program
   .name('inngest')
   .description('CLI for managing Inngest jobs - watch, cancel, filter by status')
-  .version('0.10.1')
+  .version(resolvedVersion)
   .option(
     '--env <environment>',
     'Environment to connect to',
