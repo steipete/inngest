@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2025-09-24
+### Added
+- Support for `Queued` run statuses across validation, filtering, and display.
+
+### Changed
+- `list` command now accepts `Queued` in `--status` and colors queued runs cyan in table output.
+
 ## [0.10.0] - 2025-09-24
 ### Added
 - Unit tests covering `RunWatcher` behaviour, including completion, timeout, error propagation, and event-run flows.

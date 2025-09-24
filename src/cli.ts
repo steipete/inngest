@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name('inngest')
   .description('CLI for managing Inngest jobs - watch, cancel, filter by status')
-  .version('0.10.0')
+  .version('0.10.1')
   .option(
     '--env <environment>',
     'Environment to connect to',

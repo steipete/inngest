@@ -5,6 +5,8 @@ import type { InngestJob, InngestRun, InngestRunWithEvent } from '../api/types.j
 
 export function formatStatus(status: string): string {
   switch (status.toLowerCase()) {
+    case 'queued':
+      return `${chalk.cyan('●')} ${chalk.cyan(status)}`;
     case 'running':
       return `${chalk.yellow('●')} ${chalk.yellow(status)}`;
     case 'completed':

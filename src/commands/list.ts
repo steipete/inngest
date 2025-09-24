@@ -26,7 +26,7 @@ export function createListCommand(): Command {
           );
         }
 
-        const validStatuses = ['Running', 'Completed', 'Failed', 'Cancelled'];
+        const validStatuses = ['Running', 'Queued', 'Completed', 'Failed', 'Cancelled'];
         const normalizedStatus = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 
         if (!validStatuses.includes(normalizedStatus)) {

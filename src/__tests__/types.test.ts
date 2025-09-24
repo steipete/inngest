@@ -25,10 +25,10 @@ describe('API Types Validation', () => {
       expect(() => InngestRunSchema.parse(validRun)).not.toThrow();
     });
 
-    it('should validate a minimal run object', () => {
+    it('should validate a minimal queued run object', () => {
       const minimalRun = {
         run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q',
-        status: 'Running',
+        status: 'Queued',
         run_started_at: '2024-04-25T14:46:45.337Z',
       };
 

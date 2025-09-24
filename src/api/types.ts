@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Zod schemas for runtime validation
-const RunStatusSchema = z.enum(['Running', 'Completed', 'Failed', 'Cancelled']);
+const RunStatusSchema = z.enum(['Running', 'Queued', 'Completed', 'Failed', 'Cancelled']);
 
 export const InngestRunSchema = z.object({
   run_id: z.string().min(1, 'Run ID is required'),
