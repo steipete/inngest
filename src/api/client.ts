@@ -219,13 +219,19 @@ export class InngestClient {
       hours?: number;
     } = {}
   ): Promise<ListRunsResponse> {
-    const eventsParams = this.buildEventsParams(options);
+    const sanitizedOptions = this.sanitizeListRunsOptions(options);
+    const eventsParams = this.buildEventsParams(sanitizedOptions);
     const { events: initialEvents, response: initialResponse } =
       await this.fetchInitialEvents(eventsParams);
-    const events = await this.expandEvents(initialEvents, eventsParams, initialResponse, options);
-    const runs = await this.enrichRunsFromEvents(events, options);
+    const events = await this.expandEvents(
+      initialEvents,
+      eventsParams,
+      initialResponse,
+      sanitizedOptions
+    );
+    const runs = await this.enrichRunsFromEvents(events, sanitizedOptions);
 
-    return this.buildRunsResponse(runs, options.limit);
+    return this.buildRunsResponse(runs, sanitizedOptions.limit);
   }
 
   async getJobs(runId: string): Promise<InngestJob[]> {
@@ -292,7 +298,7 @@ export class InngestClient {
 
   private async fetchAdditionalPages(
     baseParams: URLSearchParams,
-    initialResponse: { data: { metadata?: { next_cursor?: string } } }
+    initialResponse: EventsApiResponse
   ): Promise<unknown[]> {
     const additionalEvents: unknown[] = [];
     let currentCursor = initialResponse.data.metadata?.next_cursor;
@@ -416,15 +422,7 @@ export class InngestClient {
     return allEvents.slice(0, maxResults);
   }
 
-  private buildEventsParams(options: {
-    status?: string;
-    function_id?: string;
-    cursor?: string;
-    limit?: number;
-    after?: string;
-    before?: string;
-    hours?: number;
-  }): URLSearchParams {
+  private buildEventsParams(options: ListRunsQueryOptions): URLSearchParams {
     const eventsParams = new URLSearchParams();
     const eventLimit = options.status ? 100 : options.limit || 50;
     eventsParams.append('limit', eventLimit.toString());
@@ -450,9 +448,9 @@ export class InngestClient {
 
   private async fetchInitialEvents(eventsParams: URLSearchParams): Promise<{
     events: unknown[];
-    response: { data: { data?: unknown[]; metadata?: unknown } };
+    response: EventsApiResponse;
   }> {
-    const response = await this.client.get(`/v1/events?${eventsParams}`);
+    const response: EventsApiResponse = await this.client.get(`/v1/events?${eventsParams}`);
     const events = response.data.data || [];
     this.debug(`Initial page loaded: ${events.length} events`);
     this.debug(`Response metadata: ${JSON.stringify(response.data.metadata, null, 2)}`);
@@ -462,15 +460,8 @@ export class InngestClient {
   private async expandEvents(
     initialEvents: unknown[],
     eventsParams: URLSearchParams,
-    initialResponse: { data: { metadata?: { next_cursor?: string } } },
-    options: {
-      status?: string;
-      function_id?: string;
-      limit?: number;
-      after?: string;
-      before?: string;
-      hours?: number;
-    }
+    initialResponse: EventsApiResponse,
+    options: ListRunsQueryOptions
   ): Promise<unknown[]> {
     const combinedEvents = [...initialEvents];
 
@@ -478,10 +469,15 @@ export class InngestClient {
       return combinedEvents;
     }
 
-    const timeBasedEvents = await this.fetchTimeBasedChunks(eventsParams, {
-      ...options,
+    const chunkOptions: { status: string; hours?: number; maxResults: number } = {
+      status: options.status,
       maxResults: Math.max((options.limit || 20) * 5, 200),
-    });
+    };
+    if (typeof options.hours === 'number') {
+      chunkOptions.hours = options.hours;
+    }
+
+    const timeBasedEvents = await this.fetchTimeBasedChunks(eventsParams, chunkOptions);
     combinedEvents.push(...timeBasedEvents);
     this.debug(`Total events after time-based search: ${combinedEvents.length}`);
 
@@ -600,7 +596,7 @@ export class InngestClient {
 
   private runMatchesFilters(
     run: InngestRun,
-    options: { status?: string; function_id?: string }
+    options: Pick<ListRunsQueryOptions, 'status' | 'function_id'>
   ): boolean {
     if (options.status && run.status !== options.status) {
       return false;
@@ -626,4 +622,43 @@ export class InngestClient {
 
     return this.validateResponse<ListRunsResponse>(result, ListRunsResponseSchema);
   }
+
+  private sanitizeListRunsOptions(options: {
+    status?: string;
+    function_id?: string;
+    cursor?: string;
+    limit?: number;
+    after?: string;
+    before?: string;
+    hours?: number;
+  }): ListRunsQueryOptions {
+    const sanitized: ListRunsQueryOptions = {};
+    if (options.status) sanitized.status = options.status;
+    if (options.function_id) sanitized.function_id = options.function_id;
+    if (options.cursor) sanitized.cursor = options.cursor;
+    if (typeof options.limit === 'number') sanitized.limit = options.limit;
+    if (options.after) sanitized.after = options.after;
+    if (options.before) sanitized.before = options.before;
+    if (typeof options.hours === 'number') sanitized.hours = options.hours;
+    return sanitized;
+  }
+}
+
+interface ListRunsQueryOptions {
+  status?: string;
+  function_id?: string;
+  cursor?: string;
+  limit?: number;
+  after?: string;
+  before?: string;
+  hours?: number;
+}
+
+interface EventsApiResponse {
+  data: {
+    data?: unknown[];
+    metadata?: {
+      next_cursor?: string;
+    };
+  };
 }

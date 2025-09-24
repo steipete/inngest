@@ -35,15 +35,26 @@ export async function collectRuns(
   let hasMoreAvailable = false;
 
   while (true) {
-    const response = await client.listRuns({
-      status: options.status,
-      function_id: options.function_id,
-      cursor: cursorForRequest,
+    const listOptions: {
+      status?: string;
+      function_id?: string;
+      cursor?: string;
+      limit?: number;
+      after?: string;
+      before?: string;
+      hours?: number;
+    } = {
       limit: options.fetchAll ? 100 : options.limit,
-      after: options.after,
-      before: options.before,
-      hours: options.hours,
-    });
+    };
+
+    if (options.status) listOptions.status = options.status;
+    if (options.function_id) listOptions.function_id = options.function_id;
+    if (cursorForRequest) listOptions.cursor = cursorForRequest;
+    if (options.after) listOptions.after = options.after;
+    if (options.before) listOptions.before = options.before;
+    if (typeof options.hours === 'number') listOptions.hours = options.hours;
+
+    const response = await client.listRuns(listOptions);
 
     runs.push(...response.data);
 

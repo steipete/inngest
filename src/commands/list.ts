@@ -11,6 +11,7 @@ import {
   prepareRunDetailsForJSON,
   prepareRunsForJSON,
 } from '../utils/display.js';
+import type { CollectRunsOptions } from '../utils/run-collection.js';
 import { collectRuns } from '../utils/run-collection.js';
 
 export function createListCommand(): Command {
@@ -97,30 +98,28 @@ export function createListCommand(): Command {
           );
         }
 
+        const runCollectionOptions: CollectRunsOptions = {
+          limit: options.limit,
+          fetchAll: Boolean(options.all),
+        };
+        if (options.status) runCollectionOptions.status = options.status;
+        if (functionFilter) runCollectionOptions.function_id = functionFilter;
+        if (options.cursor) runCollectionOptions.cursor = options.cursor;
+        if (options.after) runCollectionOptions.after = options.after;
+        if (options.before) runCollectionOptions.before = options.before;
+        if (options.hours) runCollectionOptions.hours = options.hours;
+
         const {
           runs: allRuns,
           hasMore,
           nextCursor,
-        } = await collectRuns(
-          client,
-          {
-            status: options.status,
-            function_id: functionFilter,
-            cursor: options.cursor,
-            limit: options.limit,
-            after: options.after,
-            before: options.before,
-            hours: options.hours,
-            fetchAll: Boolean(options.all),
+        } = await collectRuns(client, runCollectionOptions, {
+          onProgress: message => {
+            if (!isJsonFormat) {
+              displayInfo(message);
+            }
           },
-          {
-            onProgress: message => {
-              if (!isJsonFormat) {
-                displayInfo(message);
-              }
-            },
-          }
-        );
+        });
 
         const outputOptions = { details: Boolean(options.details), all: Boolean(options.all) };
 
