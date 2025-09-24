@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InngestClient } from '../api/client.js';
 import type { InngestRun } from '../api/types.js';
+import { createListCommand } from '../commands/list.js';
 import { validateRunId } from '../utils/config.js';
+import { displayInfo } from '../utils/display.js';
 
 // Mock the client and utilities
 vi.mock('../api/client.js');
@@ -29,6 +31,7 @@ describe('Command Logic Integration', () => {
     getEventRuns: ReturnType<typeof vi.fn>;
     getJobs: ReturnType<typeof vi.fn>;
     listRuns: ReturnType<typeof vi.fn>;
+    getInputDataForRun: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -41,12 +44,42 @@ describe('Command Logic Integration', () => {
       getEventRuns: vi.fn(),
       getJobs: vi.fn(),
       listRuns: vi.fn(),
+      getInputDataForRun: vi.fn().mockReturnValue(undefined),
     };
 
     mockClient.mockImplementation(() => mockClientInstance);
     mockValidateRunId.mockImplementation(
       (id: string) => id.length === 26 && /^[0-9A-HJKMNP-TV-Z]{26}$/.test(id)
     );
+  });
+
+  describe('List command pagination hints', () => {
+    it('suggests using cursor when more results are available', async () => {
+      const listCommand = createListCommand();
+
+      const run: InngestRun = {
+        run_id: '01HWAVJ8ASQ5C3FXV32JS9DV9Q',
+        status: 'Running',
+        run_started_at: '2024-04-25T14:46:45.337Z',
+        ended_at: undefined,
+      };
+
+      mockClientInstance.listRuns.mockResolvedValue({
+        data: [run],
+        has_more: true,
+        cursor: 'NEXT-CURSOR',
+        metadata: {
+          fetched_at: new Date().toISOString(),
+          cached_until: null,
+        },
+      });
+
+      await listCommand.parseAsync(['--format', 'table'], { from: 'user' });
+
+      expect(mockClientInstance.listRuns).toHaveBeenCalled();
+      expect(displayInfo).toHaveBeenCalledWith('Use --cursor NEXT-CURSOR to get next page');
+      expect(displayInfo).toHaveBeenCalledWith('Total: 1 run(s)');
+    });
   });
 
   describe('Partial ID support logic', () => {

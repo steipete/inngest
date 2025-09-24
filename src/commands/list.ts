@@ -87,8 +87,9 @@ export function createListCommand(): Command {
         const client = new InngestClient(config, { verbose: options.verbose });
 
         let allRuns: InngestRun[] = [];
-        let cursor = options.cursor;
-        let hasMore = true;
+        let cursorForRequest = options.cursor;
+        let nextCursor: string | null = null;
+        let hasMoreAvailable = false;
 
         const functionFilter = options.function || options.functionName;
         const envIndicator = globalOpts.env === 'dev' ? ' [DEV]' : '';
@@ -100,11 +101,11 @@ export function createListCommand(): Command {
           );
         }
 
-        while (hasMore) {
+        while (true) {
           const response = await client.listRuns({
             status: options.status,
             function_id: functionFilter,
-            cursor,
+            cursor: cursorForRequest,
             limit: options.all ? 100 : options.limit,
             after: options.after,
             before: options.before,
@@ -113,17 +114,25 @@ export function createListCommand(): Command {
 
           allRuns = allRuns.concat(response.data);
 
-          if (options.all && response.has_more && response.cursor) {
-            cursor = response.cursor;
-            if (!isJsonFormat) {
-              displayInfo(`Fetched ${allRuns.length} runs, continuing...`);
-            }
-          } else {
-            hasMore = false;
+          if (response.cursor) {
+            nextCursor = response.cursor;
+          }
+
+          hasMoreAvailable = Boolean(response.has_more && response.cursor);
+
+          if (!(options.all && response.has_more && response.cursor)) {
+            break;
+          }
+
+          cursorForRequest = response.cursor;
+
+          if (!isJsonFormat) {
+            displayInfo(`Fetched ${allRuns.length} runs, continuing...`);
           }
 
           // Safety break for --all option
-          if (options.all && allRuns.length >= 1000) {
+          if (allRuns.length >= 1000) {
+            hasMoreAvailable = true;
             if (!isJsonFormat) {
               displayInfo('Reached maximum of 1000 runs for safety');
             }
@@ -143,16 +152,16 @@ export function createListCommand(): Command {
             outputJSON({
               runs: detailedRuns,
               total: allRuns.length,
-              has_more: !options.all && hasMore,
-              next_cursor: !options.all && hasMore ? cursor : null,
+              has_more: hasMoreAvailable,
+              next_cursor: hasMoreAvailable ? nextCursor : null,
             });
           } else {
             // Simple JSON format
             outputJSON({
               runs: prepareRunsForJSON(allRuns),
               total: allRuns.length,
-              has_more: !options.all && hasMore,
-              next_cursor: !options.all && hasMore ? cursor : null,
+              has_more: hasMoreAvailable,
+              next_cursor: hasMoreAvailable ? nextCursor : null,
             });
           }
         } else {
@@ -169,10 +178,9 @@ export function createListCommand(): Command {
             displayRunsTable(allRuns);
           }
 
-          if (!options.all && hasMore) {
-            console.log(
-              `\n${displayInfo.toString().replace('ℹ ', '')}Use --cursor ${cursor} to get next page`
-            );
+          if (!options.all && hasMoreAvailable && nextCursor) {
+            console.log('');
+            displayInfo(`Use --cursor ${nextCursor} to get next page`);
           }
 
           displayInfo(`Total: ${allRuns.length} run(s)`);
