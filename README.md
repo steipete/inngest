@@ -36,12 +36,14 @@ Get your signing key from: https://app.inngest.com/env/production/manage/signing
 The CLI supports both **production** and **development** environments:
 
 #### Production (Default)
+
 ```bash
 # Uses https://api.inngest.com
 inngest list --status Failed
 ```
 
 #### Development Environment
+
 ```bash
 # Uses local dev server at http://localhost:8288
 inngest list --env dev --status Failed
@@ -54,6 +56,7 @@ INNGEST_SIGNING_KEY=signkey-branch-... inngest list --env-slug branch/my-feature
 ```
 
 #### Environment Variables
+
 - `INNGEST_SIGNING_KEY` - Your Inngest signing key (required)
 - `INNGEST_API_URL` - Custom production API URL (optional)
 - `INNGEST_DEV_SERVER_URL` - Custom dev server URL (optional)
@@ -61,6 +64,7 @@ INNGEST_SIGNING_KEY=signkey-branch-... inngest list --env-slug branch/my-feature
 - `INNGEST_ENV` - Environment slug (e.g. `production`, `branch/my-feature`). Useful for branch environments.
 
 #### Global Options
+
 - `--env <environment>` - Switch between `prod` (default) and `dev`
 - `--dev-port <port>` - Override dev server port (default: 8288)
 - `--env-slug <slug>` - Override the environment slug sent to Inngest (same as `INNGEST_ENV`)
@@ -126,7 +130,7 @@ inngest list --function "6cc723a1-30f3-4e16-bcaa-ae40619f9770"
 
 # Time range filtering (status filters default to last 24 hours)
 inngest list --status Failed                    # Last 24 hours
-inngest list --status Failed --hours 48         # Last 48 hours  
+inngest list --status Failed --hours 48         # Last 48 hours
 inngest list --hours 6                          # Last 6 hours (any status)
 inngest list --after "2024-01-01T00:00:00Z"     # Since specific time
 inngest list --before "2024-01-01T23:59:59Z"    # Before specific time
@@ -240,6 +244,7 @@ inngest list --status Failed --hours 168 --verbose
 ```
 
 **Debug information includes:**
+
 - API response metadata and timing
 - Parallel chunk processing progress
 - Pagination and search optimization details
@@ -257,7 +262,7 @@ The CLI includes several performance optimizations:
 ## Available Statuses
 
 - `Running` - Job is currently executing
-- `Completed` - Job finished successfully  
+- `Completed` - Job finished successfully
 - `Failed` - Job failed with an error
 - `Cancelled` - Job was cancelled
 
@@ -266,11 +271,13 @@ The CLI includes several performance optimizations:
 The CLI automatically extracts and displays readable function names from Inngest events instead of showing UUIDs. This makes it much easier to identify and filter runs.
 
 **Function Name Format**: Function names typically follow patterns like:
+
 - `sweetistics-system.jobs.sweeper`
-- `my-app.embeddings.reconcile`  
+- `my-app.embeddings.reconcile`
 - `user-service.notifications.send`
 
 **Filtering Options**:
+
 - `--function-name`: Filter by function name with partial matching (recommended)
 - `--function`: Filter by function ID (UUID) or function name (legacy support)
 
@@ -279,15 +286,18 @@ The CLI automatically extracts and displays readable function names from Inngest
 Control which time period to search for runs. This is especially important when looking for failed runs or specific incidents.
 
 **Default Behavior**:
+
 - When filtering by status (e.g., `--status Failed`): searches last 24 hours
 - Without status filtering: searches recent events only
 
 **Time Range Options**:
+
 - `--hours N`: Look back N hours from now
 - `--after TIMESTAMP`: Show runs after specific time (ISO 8601 format)
 - `--before TIMESTAMP`: Show runs before specific time (ISO 8601 format)
 
 **Examples**:
+
 ```bash
 # Find failed runs in last 24 hours (default when using --status)
 inngest list --status Failed
@@ -295,7 +305,7 @@ inngest list --status Failed
 # Search last 3 days for any cancelled runs
 inngest list --status Cancelled --hours 72
 
-# Look for runs since yesterday morning  
+# Look for runs since yesterday morning
 inngest list --after "2024-01-01T09:00:00Z"
 
 # Find runs in a specific time window
@@ -421,7 +431,7 @@ If you encounter 404 errors, the API endpoint structure might be different than 
 This CLI is designed to work with the official Inngest REST API:
 
 - [Get Run Status](https://api-docs.inngest.com/docs/inngest-api/ojjs82y5lmbwq-get-a-function-run)
-- [List Runs](https://api-docs.inngest.com/docs/inngest-api/yoyeen3mu7wj0-list-event-function-runs)  
+- [List Runs](https://api-docs.inngest.com/docs/inngest-api/yoyeen3mu7wj0-list-event-function-runs)
 - [Cancel Run](https://api-docs.inngest.com/docs/inngest-api/t0itnlacczppy-cancel-a-function-run)
 - [Get Jobs](https://api-docs.inngest.com/docs/inngest-api/fgnob41ksy695-fetch-function-run-jobs)
 - [Bulk Cancel](https://www.inngest.com/docs/guides/cancel-running-functions)
@@ -429,6 +439,7 @@ This CLI is designed to work with the official Inngest REST API:
 ## Technical Documentation
 
 See [docs/spec.md](docs/spec.md) for comprehensive technical specifications, including:
+
 - Architecture overview
 - API integration details
 - Data models and validation

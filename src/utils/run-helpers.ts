@@ -1,10 +1,10 @@
-import type { InngestRun } from '../api/types.js';
-import { validateRunId } from './config.js';
+import type { InngestRun } from "../api/types.js";
+import { validateRunId } from "./config.js";
 
 const RUN_ID_HINT =
-  'Please provide either:\n' +
-  '  • Full run ID (26 characters): 01K4Z25NHYZFHPRKED1TV8410X\n' +
-  '  • Partial ID from table (12+ characters): RKED1TV8410X\n\n' +
+  "Please provide either:\n" +
+  "  • Full run ID (26 characters): 01K4Z25NHYZFHPRKED1TV8410X\n" +
+  "  • Partial ID from table (12+ characters): RKED1TV8410X\n\n" +
   '💡 Use "inngest list" to see available runs.';
 
 export interface RunLookupClient {

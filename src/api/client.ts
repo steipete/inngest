@@ -1,5 +1,5 @@
-import axios, { type AxiosError, type AxiosInstance } from 'axios';
-import { ZodError, type z } from 'zod';
+import axios, { type AxiosError, type AxiosInstance } from "axios";
+import { ZodError, type z } from "zod";
 import {
   type ApiConfig,
   ApiConfigSchema,
@@ -21,7 +21,7 @@ import {
   JobsResponseSchema,
   type ListRunsResponse,
   ListRunsResponseSchema,
-} from './types.js';
+} from "./types.js";
 
 export class InngestClient {
   private client: AxiosInstance;
@@ -36,22 +36,22 @@ export class InngestClient {
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${validatedConfig.signingKey}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     };
 
     if (validatedConfig.environmentSlug) {
-      headers['X-Inngest-Env'] = validatedConfig.environmentSlug;
+      headers["X-Inngest-Env"] = validatedConfig.environmentSlug;
     }
 
     this.client = axios.create({
-      baseURL: validatedConfig.baseUrl || 'https://api.inngest.com',
+      baseURL: validatedConfig.baseUrl || "https://api.inngest.com",
       headers,
       timeout: 30000,
     });
 
     // Add response interceptor for error handling
     this.client.interceptors.response.use(
-      response => response,
+      (response) => response,
       (error: AxiosError) => {
         if (error.response) {
           // Handle specific HTTP errors with helpful guidance first
@@ -67,7 +67,7 @@ export class InngestClient {
                 `   1. Verify your signing key has the right permissions\n` +
                 `   2. Check the latest Inngest API documentation\n` +
                 `   3. Try a different API version or endpoint structure\n\n` +
-                `🔗 API Documentation: https://api-docs.inngest.com/`
+                `🔗 API Documentation: https://api-docs.inngest.com/`,
             );
           } else if (error.response.status === 401) {
             throw new Error(
@@ -76,13 +76,13 @@ export class InngestClient {
                 `💡 To fix this:\n` +
                 `   1. Get a new signing key from: https://app.inngest.com/env/production/manage/signing-key\n` +
                 `   2. Update your environment variable:\n` +
-                `      export INNGEST_SIGNING_KEY="signkey-prod-..."`
+                `      export INNGEST_SIGNING_KEY="signkey-prod-..."`,
             );
           } else if (error.response.status === 403) {
             throw new Error(
               `🚷 Access forbidden (403)\n\n` +
                 `❌ Your signing key doesn't have permission to access this resource.\n\n` +
-                `💡 Check that your key has the required scopes for this operation.`
+                `💡 Check that your key has the required scopes for this operation.`,
             );
           }
 
@@ -95,9 +95,9 @@ export class InngestClient {
               // If error response doesn't match schema, use raw error
               const rawError = error.response.data as Record<string, unknown>;
               const message =
-                typeof rawError?.message === 'string'
+                typeof rawError?.message === "string"
                   ? rawError.message
-                  : typeof rawError?.error === 'string'
+                  : typeof rawError?.error === "string"
                     ? rawError.error
                     : `HTTP ${error.response.status}: ${error.response.statusText}`;
               throw new Error(`API Error: ${message}`);
@@ -106,7 +106,7 @@ export class InngestClient {
 
           throw new Error(
             `🌐 HTTP Error: ${error.response.status} ${error.response.statusText}\n` +
-              `📍 URL: ${error.config?.url}`
+              `📍 URL: ${error.config?.url}`,
           );
         }
         throw new Error(
@@ -115,9 +115,9 @@ export class InngestClient {
             `   • No internet connection\n` +
             `   • DNS resolution issues\n` +
             `   • Firewall blocking the request\n` +
-            `   • api.inngest.com is unreachable`
+            `   • api.inngest.com is unreachable`,
         );
-      }
+      },
     );
   }
 
@@ -133,8 +133,8 @@ export class InngestClient {
     } catch (error) {
       if (error instanceof ZodError) {
         const issues = error.issues
-          .map(issue => `${issue.path.join('.')}: ${issue.message}`)
-          .join(', ');
+          .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+          .join(", ");
         throw new Error(`API Response validation failed: ${issues}`);
       }
       throw error;
@@ -162,9 +162,9 @@ export class InngestClient {
 
       for (const event of events.data) {
         const eventRecord = event as Record<string, unknown>;
-        if (eventRecord.data && typeof eventRecord.data === 'object' && eventRecord.data !== null) {
+        if (eventRecord.data && typeof eventRecord.data === "object" && eventRecord.data !== null) {
           const eventData = eventRecord.data as Record<string, unknown>;
-          if (typeof eventData.run_id === 'string' && eventData.run_id.endsWith(partialId)) {
+          if (typeof eventData.run_id === "string" && eventData.run_id.endsWith(partialId)) {
             try {
               return await this.getRun(eventData.run_id);
             } catch {}
@@ -179,12 +179,12 @@ export class InngestClient {
   }
 
   async listEvents(
-    options: { limit?: number; cursor?: string; name?: string } = {}
+    options: { limit?: number; cursor?: string; name?: string } = {},
   ): Promise<{ data: unknown[]; metadata: unknown }> {
     const params = new URLSearchParams();
-    if (options.limit) params.append('limit', options.limit.toString());
-    if (options.cursor) params.append('cursor', options.cursor);
-    if (options.name) params.append('name', options.name);
+    if (options.limit) params.append("limit", options.limit.toString());
+    if (options.cursor) params.append("cursor", options.cursor);
+    if (options.name) params.append("name", options.name);
 
     const response = await this.client.get(`/v1/events?${params}`);
     return response.data;
@@ -203,7 +203,7 @@ export class InngestClient {
     const response = await this.client.get(`/v1/events/${eventId}/runs`);
     const validatedResponse = this.validateResponse<EventRunsResponse>(
       response.data,
-      EventRunsResponseSchema
+      EventRunsResponseSchema,
     );
     return validatedResponse.data;
   }
@@ -217,7 +217,7 @@ export class InngestClient {
       after?: string;
       before?: string;
       hours?: number;
-    } = {}
+    } = {},
   ): Promise<ListRunsResponse> {
     const sanitizedOptions = this.sanitizeListRunsOptions(options);
     const eventsParams = this.buildEventsParams(sanitizedOptions);
@@ -227,7 +227,7 @@ export class InngestClient {
       initialEvents,
       eventsParams,
       initialResponse,
-      sanitizedOptions
+      sanitizedOptions,
     );
     const runs = await this.enrichRunsFromEvents(events, sanitizedOptions);
 
@@ -238,7 +238,7 @@ export class InngestClient {
     const response = await this.client.get(`/v1/runs/${runId}/jobs`);
     const validatedResponse = this.validateResponse<JobsResponse>(
       response.data,
-      JobsResponseSchema
+      JobsResponseSchema,
     );
     return validatedResponse.data;
   }
@@ -250,23 +250,23 @@ export class InngestClient {
   async bulkCancel(request: CancellationRequest): Promise<CancellationResponse> {
     // Validate request before sending
     const validatedRequest = CancellationRequestSchema.parse(request);
-    const response = await this.client.post('/v1/cancellations', validatedRequest);
+    const response = await this.client.post("/v1/cancellations", validatedRequest);
     const payload = response.data as unknown;
 
     const normalized: unknown = (() => {
-      if (payload && typeof payload === 'object') {
+      if (payload && typeof payload === "object") {
         const direct = payload as Record<string, unknown>;
 
         // Newer API responses already expose cancellation_id + status at the top level.
-        if (typeof direct.cancellation_id === 'string' && typeof direct.status === 'string') {
+        if (typeof direct.cancellation_id === "string" && typeof direct.status === "string") {
           return direct;
         }
 
         // Legacy responses wrap values under a `data` object (e.g. { data: { id, status } }).
-        if (direct.data && typeof direct.data === 'object') {
+        if (direct.data && typeof direct.data === "object") {
           const data = direct.data as Record<string, unknown>;
-          const cancellationId = typeof data.id === 'string' ? data.id : undefined;
-          const status = typeof data.status === 'string' ? data.status : 'pending';
+          const cancellationId = typeof data.id === "string" ? data.id : undefined;
+          const status = typeof data.status === "string" ? data.status : "pending";
 
           if (cancellationId) {
             return {
@@ -279,8 +279,8 @@ export class InngestClient {
 
       // Fallback to a sentinel so Zod surfaces a useful validation error instead of crashing.
       return {
-        cancellation_id: 'unknown',
-        status: 'pending',
+        cancellation_id: "unknown",
+        status: "pending",
       } satisfies CancellationResponse;
     })();
 
@@ -298,7 +298,7 @@ export class InngestClient {
 
   private async fetchAdditionalPages(
     baseParams: URLSearchParams,
-    initialResponse: EventsApiResponse
+    initialResponse: EventsApiResponse,
   ): Promise<unknown[]> {
     const additionalEvents: unknown[] = [];
     let currentCursor = initialResponse.data.metadata?.next_cursor;
@@ -307,7 +307,7 @@ export class InngestClient {
 
     while (currentCursor && pagesLoaded < maxAdditionalPages) {
       const pageParams = new URLSearchParams(baseParams);
-      pageParams.set('cursor', currentCursor);
+      pageParams.set("cursor", currentCursor);
 
       this.debug(`Fetching additional page ${pagesLoaded + 2}...`);
 
@@ -323,7 +323,7 @@ export class InngestClient {
         additionalEvents.push(...pageEvents);
         pagesLoaded++;
         this.debug(
-          `Page ${pagesLoaded + 1} loaded: ${pageEvents.length} events (${additionalEvents.length} total additional)`
+          `Page ${pagesLoaded + 1} loaded: ${pageEvents.length} events (${additionalEvents.length} total additional)`,
         );
 
         // Check for next cursor
@@ -334,7 +334,7 @@ export class InngestClient {
           this.debug(`Reached end of pagination after ${pagesLoaded + 1} pages`);
           break;
         }
-      } catch (_error) {
+      } catch {
         this.debug(`Error fetching page ${pagesLoaded + 2}, stopping pagination`);
         break;
       }
@@ -345,7 +345,7 @@ export class InngestClient {
 
   private async fetchTimeBasedChunks(
     baseParams: URLSearchParams,
-    options: { hours?: number; status?: string; maxResults?: number }
+    options: { hours?: number; status?: string; maxResults?: number },
   ): Promise<unknown[]> {
     const allEvents: unknown[] = [];
 
@@ -356,7 +356,7 @@ export class InngestClient {
     const maxResults = options.maxResults || 1000;
 
     this.debug(
-      `Searching ${totalHours} hours in ${chunks} chunks of ${chunkHours} hours each (parallel)`
+      `Searching ${totalHours} hours in ${chunks} chunks of ${chunkHours} hours each (parallel)`,
     );
 
     // Create all chunk promises in parallel
@@ -374,23 +374,23 @@ export class InngestClient {
       startTime.setHours(startTime.getHours() - startHours);
 
       const chunkParams = new URLSearchParams(baseParams);
-      chunkParams.set('received_after', startTime.toISOString());
-      chunkParams.set('received_before', endTime.toISOString());
+      chunkParams.set("received_after", startTime.toISOString());
+      chunkParams.set("received_before", endTime.toISOString());
 
       this.debug(`Chunk ${i + 1}: ${startTime.toISOString()} to ${endTime.toISOString()}`);
 
       chunkPromises.push(
         this.client
           .get(`/v1/events?${chunkParams}`)
-          .then(response => ({
+          .then((response) => ({
             chunkIndex: i + 1,
             events: response.data.data || [],
           }))
-          .catch(_error => ({
+          .catch(() => ({
             chunkIndex: i + 1,
             events: [] as unknown[],
             error: true,
-          }))
+          })),
       );
     }
 
@@ -401,7 +401,7 @@ export class InngestClient {
     results.sort((a, b) => a.chunkIndex - b.chunkIndex);
 
     for (const result of results) {
-      if ('error' in result) {
+      if ("error" in result) {
         this.debug(`Error fetching chunk ${result.chunkIndex}, skipping`);
         continue;
       }
@@ -425,21 +425,21 @@ export class InngestClient {
   private buildEventsParams(options: ListRunsQueryOptions): URLSearchParams {
     const eventsParams = new URLSearchParams();
     const eventLimit = options.status ? 100 : options.limit || 50;
-    eventsParams.append('limit', eventLimit.toString());
-    if (options.cursor) eventsParams.append('cursor', options.cursor);
+    eventsParams.append("limit", eventLimit.toString());
+    if (options.cursor) eventsParams.append("cursor", options.cursor);
 
     if (options.after) {
-      eventsParams.append('received_after', options.after);
+      eventsParams.append("received_after", options.after);
     } else if (options.before) {
-      eventsParams.append('received_before', options.before);
+      eventsParams.append("received_before", options.before);
     } else if (options.hours) {
       const hoursAgo = new Date();
       hoursAgo.setHours(hoursAgo.getHours() - options.hours);
-      eventsParams.append('received_after', hoursAgo.toISOString());
+      eventsParams.append("received_after", hoursAgo.toISOString());
     } else if (options.status) {
       const monthsAgo = new Date();
       monthsAgo.setMonth(monthsAgo.getMonth() - 6);
-      eventsParams.append('received_after', monthsAgo.toISOString());
+      eventsParams.append("received_after", monthsAgo.toISOString());
       this.debug(`Status search going back to: ${monthsAgo.toISOString()}`);
     }
 
@@ -461,7 +461,7 @@ export class InngestClient {
     initialEvents: unknown[],
     eventsParams: URLSearchParams,
     initialResponse: EventsApiResponse,
-    options: ListRunsQueryOptions
+    options: ListRunsQueryOptions,
   ): Promise<unknown[]> {
     const combinedEvents = [...initialEvents];
 
@@ -473,7 +473,7 @@ export class InngestClient {
       status: options.status,
       maxResults: Math.max((options.limit || 20) * 5, 200),
     };
-    if (typeof options.hours === 'number') {
+    if (typeof options.hours === "number") {
       chunkOptions.hours = options.hours;
     }
 
@@ -495,7 +495,7 @@ export class InngestClient {
     options: {
       status?: string;
       function_id?: string;
-    }
+    },
   ): Promise<InngestRun[]> {
     const runs: InngestRun[] = [];
     const seenRunIds = new Set<string>();
@@ -524,7 +524,7 @@ export class InngestClient {
         if (!this.runMatchesFilters(enrichedRun, options)) continue;
 
         runs.push(enrichedRun);
-      } catch (_error) {
+      } catch {
         // Ignore errors for individual runs and continue processing others
       }
     }
@@ -541,13 +541,13 @@ export class InngestClient {
 
     for (const event of events) {
       const eventRecord = event as Record<string, unknown>;
-      if (!eventRecord?.data || typeof eventRecord.data !== 'object' || eventRecord.data === null) {
+      if (!eventRecord?.data || typeof eventRecord.data !== "object" || eventRecord.data === null) {
         continue;
       }
 
       const data = eventRecord.data as Record<string, unknown>;
-      const runId = typeof data.run_id === 'string' ? data.run_id : null;
-      const functionId = typeof data.function_id === 'string' ? data.function_id : null;
+      const runId = typeof data.run_id === "string" ? data.run_id : null;
+      const functionId = typeof data.function_id === "string" ? data.function_id : null;
 
       if (runId && functionId) {
         functionNames.set(runId, functionId);
@@ -559,26 +559,26 @@ export class InngestClient {
   }
 
   private extractRunId(event: unknown): string | null {
-    if (!event || typeof event !== 'object') {
+    if (!event || typeof event !== "object") {
       return null;
     }
 
     const eventRecord = event as Record<string, unknown>;
-    if (!eventRecord.data || typeof eventRecord.data !== 'object' || eventRecord.data === null) {
+    if (!eventRecord.data || typeof eventRecord.data !== "object" || eventRecord.data === null) {
       return null;
     }
 
     const data = eventRecord.data as Record<string, unknown>;
-    return typeof data.run_id === 'string' ? data.run_id : null;
+    return typeof data.run_id === "string" ? data.run_id : null;
   }
 
   private extractInputData(eventData: unknown): unknown {
-    if (!eventData || typeof eventData !== 'object') {
+    if (!eventData || typeof eventData !== "object") {
       return null;
     }
 
     const eventRecord = eventData as Record<string, unknown>;
-    if (!eventRecord.data || typeof eventRecord.data !== 'object' || eventRecord.data === null) {
+    if (!eventRecord.data || typeof eventRecord.data !== "object" || eventRecord.data === null) {
       return null;
     }
 
@@ -586,7 +586,7 @@ export class InngestClient {
     const eventInfo =
       dataRecord.event || (Array.isArray(dataRecord.events) ? dataRecord.events[0] : null);
 
-    if (!eventInfo || typeof eventInfo !== 'object') {
+    if (!eventInfo || typeof eventInfo !== "object") {
       return null;
     }
 
@@ -596,7 +596,7 @@ export class InngestClient {
 
   private runMatchesFilters(
     run: InngestRun,
-    options: Pick<ListRunsQueryOptions, 'status' | 'function_id'>
+    options: Pick<ListRunsQueryOptions, "status" | "function_id">,
   ): boolean {
     if (options.status && run.status !== options.status) {
       return false;
@@ -636,10 +636,10 @@ export class InngestClient {
     if (options.status) sanitized.status = options.status;
     if (options.function_id) sanitized.function_id = options.function_id;
     if (options.cursor) sanitized.cursor = options.cursor;
-    if (typeof options.limit === 'number') sanitized.limit = options.limit;
+    if (typeof options.limit === "number") sanitized.limit = options.limit;
     if (options.after) sanitized.after = options.after;
     if (options.before) sanitized.before = options.before;
-    if (typeof options.hours === 'number') sanitized.hours = options.hours;
+    if (typeof options.hours === "number") sanitized.hours = options.hours;
     return sanitized;
   }
 }

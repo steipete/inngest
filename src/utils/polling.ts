@@ -1,5 +1,5 @@
-import type { InngestClient } from '../api/client.js';
-import { displayError, displayInfo, displayRunDetails } from './display.js';
+import type { InngestClient } from "../api/client.js";
+import { displayError, displayInfo, displayRunDetails } from "./display.js";
 
 export interface WatchOptions {
   pollInterval: number; // in milliseconds
@@ -17,11 +17,11 @@ export class RunWatcher {
 
   async watchRun(runId: string, options: WatchOptions): Promise<void> {
     if (this.isWatching) {
-      throw new Error('Already watching a run');
+      throw new Error("Already watching a run");
     }
 
     this.isWatching = true;
-    let lastStatus = '';
+    let lastStatus = "";
     const startTime = Date.now();
 
     displayInfo(`Watching run ${runId}... (Press Ctrl+C to stop)`);
@@ -37,7 +37,7 @@ export class RunWatcher {
         }
 
         // Stop watching if run is completed/failed/cancelled
-        if (['Completed', 'Failed', 'Cancelled'].includes(run.status)) {
+        if (["Completed", "Failed", "Cancelled"].includes(run.status)) {
           this.stopWatching();
           displayInfo(`Run ${run.status.toLowerCase()}`);
           return;
@@ -46,7 +46,7 @@ export class RunWatcher {
         // Check timeout
         if (options.maxDuration && Date.now() - startTime > options.maxDuration) {
           this.stopWatching();
-          displayInfo('Watch timeout reached');
+          displayInfo("Watch timeout reached");
           return;
         }
       } catch (error) {
@@ -65,7 +65,7 @@ export class RunWatcher {
 
   async watchEventRuns(eventId: string, options: WatchOptions): Promise<void> {
     if (this.isWatching) {
-      throw new Error('Already watching runs');
+      throw new Error("Already watching runs");
     }
 
     this.isWatching = true;
@@ -81,7 +81,7 @@ export class RunWatcher {
         if (runs.length !== lastRunCount) {
           console.clear();
           displayInfo(`Found ${runs.length} run(s) for event ${eventId}`);
-          runs.forEach(run => {
+          runs.forEach((run) => {
             console.log(`\n📋 Run ${run.run_id.slice(-12)}`);
             displayRunDetails(run);
           });
@@ -89,17 +89,17 @@ export class RunWatcher {
         }
 
         // Check if all runs are completed
-        const activeRuns = runs.filter(run => run.status === 'Running');
+        const activeRuns = runs.filter((run) => run.status === "Running");
         if (activeRuns.length === 0 && runs.length > 0) {
           this.stopWatching();
-          displayInfo('All runs completed');
+          displayInfo("All runs completed");
           return;
         }
 
         // Check timeout
         if (options.maxDuration && Date.now() - startTime > options.maxDuration) {
           this.stopWatching();
-          displayInfo('Watch timeout reached');
+          displayInfo("Watch timeout reached");
           return;
         }
       } catch (error) {
@@ -126,7 +126,7 @@ export class RunWatcher {
 }
 
 // Handle graceful shutdown
-process.on('SIGINT', () => {
-  displayInfo('Stopping watch...');
+process.on("SIGINT", () => {
+  displayInfo("Stopping watch...");
   process.exit(0);
 });

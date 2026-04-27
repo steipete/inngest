@@ -1,5 +1,5 @@
-import type { InngestClient } from '../api/client.js';
-import type { InngestRun } from '../api/types.js';
+import type { InngestClient } from "../api/client.js";
+import type { InngestRun } from "../api/types.js";
 
 const SAFETY_LIMIT = 1000;
 
@@ -27,7 +27,7 @@ export interface CollectRunsResult {
 export async function collectRuns(
   client: InngestClient,
   options: CollectRunsOptions,
-  callbacks: CollectRunsCallbacks = {}
+  callbacks: CollectRunsCallbacks = {},
 ): Promise<CollectRunsResult> {
   const runs: InngestRun[] = [];
   let cursorForRequest = options.cursor;
@@ -52,7 +52,7 @@ export async function collectRuns(
     if (cursorForRequest) listOptions.cursor = cursorForRequest;
     if (options.after) listOptions.after = options.after;
     if (options.before) listOptions.before = options.before;
-    if (typeof options.hours === 'number') listOptions.hours = options.hours;
+    if (typeof options.hours === "number") listOptions.hours = options.hours;
 
     const response = await client.listRuns(listOptions);
 
@@ -77,7 +77,7 @@ export async function collectRuns(
     if (options.fetchAll && runs.length >= SAFETY_LIMIT) {
       hasMoreAvailable = true;
       if (callbacks.onProgress) {
-        callbacks.onProgress('Reached maximum of 1000 runs for safety');
+        callbacks.onProgress("Reached maximum of 1000 runs for safety");
       }
       break;
     }

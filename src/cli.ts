@@ -1,64 +1,66 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import chalk from 'chalk';
-import { Command } from 'commander';
-import { createCancelCommand } from './commands/cancel.js';
-import { createCancellationStatusCommand } from './commands/cancellation-status.js';
-import { createJobsCommand } from './commands/jobs.js';
-import { createListCommand } from './commands/list.js';
-import { createStatusCommand } from './commands/status.js';
-import { createWatchCommand } from './commands/watch.js';
-import { displayError } from './utils/display.js';
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import chalk from "chalk";
+import { Command } from "commander";
+import { createCancelCommand } from "./commands/cancel.js";
+import { createCancellationStatusCommand } from "./commands/cancellation-status.js";
+import { createJobsCommand } from "./commands/jobs.js";
+import { createListCommand } from "./commands/list.js";
+import { createStatusCommand } from "./commands/status.js";
+import { createWatchCommand } from "./commands/watch.js";
+import { displayError } from "./utils/display.js";
 
 const program = new Command();
 
 const resolvedVersion = (() => {
   try {
-    const pkgPath = path.resolve(__dirname, '../package.json');
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version?: string };
+    const currentDir = path.dirname(fileURLToPath(import.meta.url));
+    const pkgPath = path.resolve(currentDir, "../package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { version?: string };
     if (pkg.version) {
       return pkg.version;
     }
-  } catch (_error) {}
-  return 'unknown';
+  } catch {}
+  return "unknown";
 })();
 
 program
-  .name('inngest')
-  .description('CLI for managing Inngest jobs - watch, cancel, filter by status')
+  .name("inngest")
+  .description("CLI for managing Inngest jobs - watch, cancel, filter by status")
   .version(resolvedVersion)
   .option(
-    '--env <environment>',
-    'Environment to connect to',
-    value => {
-      const validEnvs = ['prod', 'dev'];
+    "--env <environment>",
+    "Environment to connect to",
+    (value) => {
+      const validEnvs = ["prod", "dev"];
       if (!validEnvs.includes(value)) {
-        throw new Error(`Invalid environment "${value}". Available: ${validEnvs.join(', ')}`);
+        throw new Error(`Invalid environment "${value}". Available: ${validEnvs.join(", ")}`);
       }
-      return value as 'prod' | 'dev';
+      return value as "prod" | "dev";
     },
-    'prod'
+    "prod",
   )
   .option(
-    '--env-slug <slug>',
-    'Inngest environment slug (e.g. production, branch/my-feature). Overrides INNGEST_ENV environment variable.',
-    value => value.trim()
+    "--env-slug <slug>",
+    "Inngest environment slug (e.g. production, branch/my-feature). Overrides INNGEST_ENV environment variable.",
+    (value) => value.trim(),
   )
-  .option('--dev-port <port>', 'Port for dev server (default: 8288)', value => {
+  .option("--dev-port <port>", "Port for dev server (default: 8288)", (value) => {
     const port = parseInt(value, 10);
     if (Number.isNaN(port) || port < 1 || port > 65535) {
-      throw new Error('Dev port must be a valid port number (1-65535)');
+      throw new Error("Dev port must be a valid port number (1-65535)");
     }
     return port;
   })
   .configureOutput({
-    writeOut: str => process.stdout.write(str),
-    writeErr: str => process.stderr.write(str),
+    writeOut: (str) => process.stdout.write(str),
+    writeErr: (str) => process.stderr.write(str),
     outputError: (str, write) => {
       // Commander calls this for help "errors" - suppress them
-      if (str.includes('(outputHelp)')) {
+      if (str.includes("(outputHelp)")) {
         return;
       }
       write(chalk.red(str));
@@ -74,12 +76,12 @@ program.addCommand(createJobsCommand());
 program.addCommand(createCancellationStatusCommand());
 
 // Handle help and version cleanly without showing errors
-program.exitOverride(err => {
+program.exitOverride((err) => {
   // Check for help - Commander uses 'commander.helpDisplayed' code
-  if (err.code === 'commander.helpDisplayed') {
+  if (err.code === "commander.helpDisplayed") {
     process.exit(0);
   }
-  if (err.code === 'commander.version') {
+  if (err.code === "commander.version") {
     process.exit(0);
   }
   // For other errors, display them properly and exit
@@ -97,15 +99,15 @@ if (process.argv.length <= 2) {
 program.parse();
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
   process.exit(1);
 });
 
 // Handle uncaught exceptions (but not help)
-process.on('uncaughtException', error => {
+process.on("uncaughtException", (error) => {
   // Don't show error for help output
-  if (error.message?.includes('(outputHelp)')) {
+  if (error.message?.includes("(outputHelp)")) {
     process.exit(0);
   }
   displayError(error);

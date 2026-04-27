@@ -61,15 +61,15 @@ headers: {
 
 ### Endpoints
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/v1/runs/{runId}` | GET | Get specific run details |
-| `/v1/events/{eventId}/runs` | GET | Get runs for an event |
-| `/v1/runs` | GET | List runs with filtering |
-| `/v1/runs/{runId}/jobs` | GET | Get job details for a run |
-| `/v1/runs/{runId}` | DELETE | Cancel a specific run |
-| `/v1/cancellations` | POST | Bulk cancel operations |
-| `/v1/cancellations/{id}` | GET | Get cancellation status |
+| Endpoint                    | Method | Purpose                   |
+| --------------------------- | ------ | ------------------------- |
+| `/v1/runs/{runId}`          | GET    | Get specific run details  |
+| `/v1/events/{eventId}/runs` | GET    | Get runs for an event     |
+| `/v1/runs`                  | GET    | List runs with filtering  |
+| `/v1/runs/{runId}/jobs`     | GET    | Get job details for a run |
+| `/v1/runs/{runId}`          | DELETE | Cancel a specific run     |
+| `/v1/cancellations`         | POST   | Bulk cancel operations    |
+| `/v1/cancellations/{id}`    | GET    | Get cancellation status   |
 
 ## Data Models
 
@@ -77,15 +77,15 @@ headers: {
 
 ```typescript
 // Run Status Enum
-type RunStatus = 'Running' | 'Completed' | 'Failed' | 'Cancelled';
+type RunStatus = "Running" | "Completed" | "Failed" | "Cancelled";
 
 // Inngest Run
 interface InngestRun {
   run_id: string;
   status: RunStatus;
-  run_started_at: string;     // ISO 8601 timestamp
-  ended_at?: string;          // ISO 8601 timestamp
-  output?: unknown;           // JSON output
+  run_started_at: string; // ISO 8601 timestamp
+  ended_at?: string; // ISO 8601 timestamp
+  output?: unknown; // JSON output
   event_id?: string;
   function_id?: string;
   function_version?: number;
@@ -97,8 +97,8 @@ interface InngestJob {
   run_id: string;
   step: string;
   status: RunStatus;
-  started_at: string;         // ISO 8601 timestamp
-  ended_at?: string;          // ISO 8601 timestamp
+  started_at: string; // ISO 8601 timestamp
+  ended_at?: string; // ISO 8601 timestamp
   output?: unknown;
   error?: unknown;
 }
@@ -111,7 +111,7 @@ All API responses are validated using Zod schemas at runtime:
 ```typescript
 const InngestRunSchema = z.object({
   run_id: z.string().min(1),
-  status: z.enum(['Running', 'Completed', 'Failed', 'Cancelled']),
+  status: z.enum(["Running", "Completed", "Failed", "Cancelled"]),
   run_started_at: z.string().datetime(),
   ended_at: z.string().datetime().optional(),
   output: z.unknown().optional(),
@@ -133,6 +133,7 @@ inngest status --event <eventId>  # Get all runs for an event
 ```
 
 **Implementation**:
+
 - Validates run/event ID format (ULID)
 - Fetches data via API client
 - Displays formatted output with colors
@@ -146,6 +147,7 @@ inngest list [options]
 ```
 
 **Options**:
+
 - `--status <status>`: Filter by status (Running, Completed, Failed, Cancelled)
 - `--function <functionId>`: Filter by function ID
 - `--limit <number>`: Limit results (1-100, default 20)
@@ -153,6 +155,7 @@ inngest list [options]
 - `--all`: Fetch all results (with safety limit)
 
 **Features**:
+
 - Server-side filtering and pagination
 - Automatic pagination for `--all` flag
 - Safety limits to prevent excessive API calls
@@ -167,10 +170,12 @@ inngest watch --event <eventId>   # Watch event runs
 ```
 
 **Options**:
+
 - `--interval <seconds>`: Polling interval (1-300s, default 5s)
 - `--timeout <minutes>`: Maximum watch duration (1-60min)
 
 **Implementation**:
+
 - Configurable polling intervals
 - Automatic termination when runs complete
 - Graceful shutdown on Ctrl+C
@@ -189,13 +194,15 @@ inngest cancel --app-id <appId> --function <functionId> [options]
 ```
 
 **Bulk Options**:
+
 - `--after <timestamp>`: Cancel runs after ISO 8601 timestamp
-- `--before <timestamp>`: Cancel runs before ISO 8601 timestamp  
+- `--before <timestamp>`: Cancel runs before ISO 8601 timestamp
 - `--if <expression>`: CEL expression for conditional cancellation
 - `--dry-run`: Preview what would be cancelled
 - `--yes`: Skip confirmation prompts
 
 **Safety Features**:
+
 - Confirmation prompts for destructive operations
 - Dry-run mode for bulk operations
 - Input validation for timestamps and expressions
@@ -214,10 +221,10 @@ inngest jobs <runId>
 
 ### Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `INNGEST_SIGNING_KEY` | Yes | Inngest signing key for authentication |
-| `INNGEST_API_URL` | No | Custom API URL (default: https://api.inngest.com) |
+| Variable              | Required | Description                                       |
+| --------------------- | -------- | ------------------------------------------------- |
+| `INNGEST_SIGNING_KEY` | Yes      | Inngest signing key for authentication            |
+| `INNGEST_API_URL`     | No       | Custom API URL (default: https://api.inngest.com) |
 
 ### Validation
 
@@ -258,10 +265,10 @@ displayError(new Error("API Error: Invalid run ID format"));
 
 ```typescript
 const statusColors = {
-  Running: '● Running',    // Yellow
-  Completed: '● Completed', // Green  
-  Failed: '● Failed',       // Red
-  Cancelled: '● Cancelled', // Gray
+  Running: "● Running", // Yellow
+  Completed: "● Completed", // Green
+  Failed: "● Failed", // Red
+  Cancelled: "● Cancelled", // Gray
 };
 ```
 
@@ -294,12 +301,12 @@ Formatted using CLI-Table3 with consistent styling:
 ### Test Structure
 
 ```typescript
-describe('InngestClient', () => {
+describe("InngestClient", () => {
   beforeEach(() => {
     // Setup mocked dependencies
   });
 
-  it('should validate API responses', async () => {
+  it("should validate API responses", async () => {
     // Test runtime validation
   });
 });
@@ -416,7 +423,7 @@ npm install -g @steipete/inngest
 ### Planned Features
 
 - **Configuration Files**: Support for `.inngestrc` configuration
-- **Output Formats**: JSON, CSV export options  
+- **Output Formats**: JSON, CSV export options
 - **Webhooks**: Real-time notifications instead of polling
 - **Caching**: Optional response caching for repeated queries
 - **Batch Operations**: Enhanced bulk operations with progress bars
@@ -434,6 +441,7 @@ npm install -g @steipete/inngest
 ### ULID Format
 
 Inngest uses ULID (Universally Unique Lexicographically Sortable Identifier) format:
+
 - 26 characters long
 - Characters: `0123456789ABCDEFGHJKMNPQRSTVWXYZ` (Crockford's Base32)
 - Pattern: `/^[0-9A-HJKMNP-TV-Z]{26}$/`
@@ -441,6 +449,7 @@ Inngest uses ULID (Universally Unique Lexicographically Sortable Identifier) for
 ### CEL Expressions
 
 Common Expression Language examples for conditional operations:
+
 ```cel
 event.data.userId == "user_123"
 event.data.priority > 5
@@ -450,6 +459,7 @@ has(event.data.retryCount) && event.data.retryCount > 3
 ### ISO 8601 Timestamps
 
 Expected format: `2024-01-01T10:30:00.000Z`
+
 - UTC timezone required
 - Millisecond precision supported
 - Validated by Zod datetime schema

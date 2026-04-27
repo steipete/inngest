@@ -1,22 +1,22 @@
-import chalk from 'chalk';
-import Table from 'cli-table3';
-import type { InngestClient } from '../api/client.js';
-import type { InngestJob, InngestRun, InngestRunWithEvent } from '../api/types.js';
+import chalk from "chalk";
+import Table from "cli-table3";
+import type { InngestClient } from "../api/client.js";
+import type { InngestJob, InngestRun, InngestRunWithEvent } from "../api/types.js";
 
 export function formatStatus(status: string): string {
   switch (status.toLowerCase()) {
-    case 'queued':
-      return `${chalk.cyan('●')} ${chalk.cyan(status)}`;
-    case 'running':
-      return `${chalk.yellow('●')} ${chalk.yellow(status)}`;
-    case 'completed':
-      return `${chalk.green('●')} ${chalk.green(status)}`;
-    case 'failed':
-      return `${chalk.red('●')} ${chalk.red(status)}`;
-    case 'cancelled':
-      return `${chalk.gray('●')} ${chalk.gray(status)}`;
+    case "queued":
+      return `${chalk.cyan("●")} ${chalk.cyan(status)}`;
+    case "running":
+      return `${chalk.yellow("●")} ${chalk.yellow(status)}`;
+    case "completed":
+      return `${chalk.green("●")} ${chalk.green(status)}`;
+    case "failed":
+      return `${chalk.red("●")} ${chalk.red(status)}`;
+    case "cancelled":
+      return `${chalk.gray("●")} ${chalk.gray(status)}`;
     default:
-      return `${chalk.white('●')} ${status}`;
+      return `${chalk.white("●")} ${status}`;
   }
 }
 
@@ -43,17 +43,17 @@ export function formatTimestamp(timestamp: string): string {
 
 export function displayRunsTable(runs: InngestRun[]): void {
   if (runs.length === 0) {
-    console.log(chalk.yellow('No runs found'));
+    console.log(chalk.yellow("No runs found"));
     return;
   }
 
   const table = new Table({
     head: [
-      chalk.bold('Run ID'),
-      chalk.bold('Status'),
-      chalk.bold('Function'),
-      chalk.bold('Started'),
-      chalk.bold('Duration'),
+      chalk.bold("Run ID"),
+      chalk.bold("Status"),
+      chalk.bold("Function"),
+      chalk.bold("Started"),
+      chalk.bold("Duration"),
     ],
     style: {
       head: [],
@@ -61,11 +61,11 @@ export function displayRunsTable(runs: InngestRun[]): void {
     },
   });
 
-  runs.forEach(run => {
+  runs.forEach((run) => {
     table.push([
       run.run_id, // Show full run ID for easy copying
       formatStatus(run.status),
-      run.function_name || run.function_id || 'N/A',
+      run.function_name || run.function_id || "N/A",
       formatTimestamp(run.run_started_at),
       formatDuration(run.run_started_at, run.ended_at),
     ]);
@@ -76,29 +76,29 @@ export function displayRunsTable(runs: InngestRun[]): void {
 
 export async function displayRunDetails(
   run: InngestRun | InngestRunWithEvent,
-  client?: InngestClient
+  client?: InngestClient,
 ): Promise<void> {
-  const isFailed = run.status.toLowerCase() === 'failed';
-  const icon = isFailed ? '❌' : '📋';
+  const isFailed = run.status.toLowerCase() === "failed";
+  const icon = isFailed ? "❌" : "📋";
 
   console.log(chalk.bold(`\n${icon} Run Details`));
-  console.log('─'.repeat(50));
-  console.log(`${chalk.bold('ID:')} ${run.run_id}`);
-  console.log(`${chalk.bold('Status:')} ${formatStatus(run.status)}`);
-  console.log(`${chalk.bold('Function:')} ${run.function_name || run.function_id || 'N/A'}`);
+  console.log("─".repeat(50));
+  console.log(`${chalk.bold("ID:")} ${run.run_id}`);
+  console.log(`${chalk.bold("Status:")} ${formatStatus(run.status)}`);
+  console.log(`${chalk.bold("Function:")} ${run.function_name || run.function_id || "N/A"}`);
 
   if (run.function_version) {
-    console.log(`${chalk.bold('Version:')} ${run.function_version}`);
+    console.log(`${chalk.bold("Version:")} ${run.function_version}`);
   }
 
-  console.log(`${chalk.bold('Event ID:')} ${run.event_id || 'N/A'}`);
-  console.log(`${chalk.bold('Started:')} ${formatTimestamp(run.run_started_at)}`);
+  console.log(`${chalk.bold("Event ID:")} ${run.event_id || "N/A"}`);
+  console.log(`${chalk.bold("Started:")} ${formatTimestamp(run.run_started_at)}`);
 
   if (run.ended_at) {
-    console.log(`${chalk.bold('Ended:')} ${formatTimestamp(run.ended_at)}`);
-    console.log(`${chalk.bold('Duration:')} ${formatDuration(run.run_started_at, run.ended_at)}`);
+    console.log(`${chalk.bold("Ended:")} ${formatTimestamp(run.ended_at)}`);
+    console.log(`${chalk.bold("Duration:")} ${formatDuration(run.run_started_at, run.ended_at)}`);
   } else {
-    console.log(`${chalk.bold('Duration:')} ${formatDuration(run.run_started_at)} (running)`);
+    console.log(`${chalk.bold("Duration:")} ${formatDuration(run.run_started_at)} (running)`);
   }
 
   // Display event input data if available
@@ -125,10 +125,10 @@ export async function displayRunDetails(
   }
 
   if (inputData) {
-    console.log(`\n${chalk.bold('Input Data:')}`);
+    console.log(`\n${chalk.bold("Input Data:")}`);
     try {
       const formatted =
-        typeof inputData === 'string' ? inputData : JSON.stringify(inputData, null, 2);
+        typeof inputData === "string" ? inputData : JSON.stringify(inputData, null, 2);
       console.log(chalk.cyan(formatted));
     } catch {
       console.log(inputData);
@@ -136,13 +136,13 @@ export async function displayRunDetails(
   }
 
   if (run.output) {
-    const outputLabel = isFailed ? 'Error Details:' : 'Output:';
+    const outputLabel = isFailed ? "Error Details:" : "Output:";
     console.log(`\n${chalk.bold(outputLabel)}`);
 
     // Pretty print JSON output with proper formatting
     try {
       const formatted =
-        typeof run.output === 'string' ? run.output : JSON.stringify(run.output, null, 2);
+        typeof run.output === "string" ? run.output : JSON.stringify(run.output, null, 2);
 
       // Highlight errors in red for failed runs
       if (isFailed) {
@@ -158,17 +158,17 @@ export async function displayRunDetails(
 
 export function displayJobsTable(jobs: InngestJob[]): void {
   if (jobs.length === 0) {
-    console.log(chalk.yellow('No jobs found'));
+    console.log(chalk.yellow("No jobs found"));
     return;
   }
 
   const table = new Table({
     head: [
-      chalk.bold('Job ID'),
-      chalk.bold('Step'),
-      chalk.bold('Status'),
-      chalk.bold('Started'),
-      chalk.bold('Duration'),
+      chalk.bold("Job ID"),
+      chalk.bold("Step"),
+      chalk.bold("Status"),
+      chalk.bold("Started"),
+      chalk.bold("Duration"),
     ],
     style: {
       head: [],
@@ -176,7 +176,7 @@ export function displayJobsTable(jobs: InngestJob[]): void {
     },
   });
 
-  jobs.forEach(job => {
+  jobs.forEach((job) => {
     table.push([
       job.id.slice(-12),
       job.step,
@@ -190,19 +190,19 @@ export function displayJobsTable(jobs: InngestJob[]): void {
 }
 
 export function displayError(error: Error): void {
-  console.error(chalk.red('❌ Error:'), error.message);
+  console.error(chalk.red("❌ Error:"), error.message);
 }
 
 export function displaySuccess(message: string): void {
-  console.log(chalk.green('✅'), message);
+  console.log(chalk.green("✅"), message);
 }
 
 export function displayInfo(message: string): void {
-  console.log(chalk.blue('ℹ'), message);
+  console.log(chalk.blue("ℹ"), message);
 }
 
 export function displayWarning(message: string): void {
-  console.log(chalk.yellow('⚠'), message);
+  console.log(chalk.yellow("⚠"), message);
 }
 
 export function outputJSON(data: unknown): void {
@@ -210,7 +210,7 @@ export function outputJSON(data: unknown): void {
 }
 
 export function prepareRunsForJSON(runs: InngestRun[]): unknown {
-  return runs.map(run => ({
+  return runs.map((run) => ({
     run_id: run.run_id,
     status: run.status,
     function_id: run.function_id,
@@ -225,7 +225,7 @@ export function prepareRunsForJSON(runs: InngestRun[]): unknown {
 
 export function prepareRunDetailsForJSON(
   run: InngestRun | InngestRunWithEvent,
-  inputData?: unknown
+  inputData?: unknown,
 ): unknown {
   return {
     run_id: run.run_id,
@@ -242,7 +242,7 @@ export function prepareRunDetailsForJSON(
 }
 
 export function prepareJobsForJSON(jobs: InngestJob[]): unknown {
-  return jobs.map(job => ({
+  return jobs.map((job) => ({
     id: job.id,
     step: job.step,
     status: job.status,

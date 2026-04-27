@@ -1,13 +1,13 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // Zod schemas for runtime validation
-const RunStatusSchema = z.enum(['Running', 'Queued', 'Completed', 'Failed', 'Cancelled']);
+const RunStatusSchema = z.enum(["Running", "Queued", "Completed", "Failed", "Cancelled"]);
 
 export const InngestRunSchema = z.object({
-  run_id: z.string().min(1, 'Run ID is required'),
+  run_id: z.string().min(1, "Run ID is required"),
   status: RunStatusSchema,
-  run_started_at: z.string().datetime('Invalid start date format'),
-  ended_at: z.string().datetime('Invalid end date format').optional(),
+  run_started_at: z.string().datetime("Invalid start date format"),
+  ended_at: z.string().datetime("Invalid end date format").optional(),
   output: z.unknown().optional(),
   event_id: z.string().optional(),
   function_id: z.string().optional(),
@@ -16,8 +16,8 @@ export const InngestRunSchema = z.object({
 });
 
 export const InngestEventSchema = z.object({
-  id: z.string().min(1, 'Event ID is required'),
-  name: z.string().min(1, 'Event name is required'),
+  id: z.string().min(1, "Event ID is required"),
+  name: z.string().min(1, "Event name is required"),
   data: z.unknown(),
   ts: z.number().optional(),
   user: z.unknown().optional(),
@@ -25,12 +25,12 @@ export const InngestEventSchema = z.object({
 });
 
 export const InngestJobSchema = z.object({
-  id: z.string().min(1, 'Job ID is required'),
-  run_id: z.string().min(1, 'Run ID is required'),
-  step: z.string().min(1, 'Step name is required'),
+  id: z.string().min(1, "Job ID is required"),
+  run_id: z.string().min(1, "Run ID is required"),
+  step: z.string().min(1, "Step name is required"),
   status: RunStatusSchema,
-  started_at: z.string().datetime('Invalid start date format'),
-  ended_at: z.string().datetime('Invalid end date format').optional(),
+  started_at: z.string().datetime("Invalid start date format"),
+  ended_at: z.string().datetime("Invalid end date format").optional(),
   output: z.unknown().optional(),
   error: z.unknown().optional(),
 });
@@ -58,34 +58,34 @@ export const JobsResponseSchema = z.object({
 export const CancellationRequestSchema = z.object({
   app_id: z.string().optional(),
   function_id: z.string().optional(),
-  started_after: z.string().datetime('Invalid after date format').optional(),
-  started_before: z.string().datetime('Invalid before date format').optional(),
+  started_after: z.string().datetime("Invalid after date format").optional(),
+  started_before: z.string().datetime("Invalid before date format").optional(),
   if: z.string().optional(),
 });
 
 export const CancellationResponseSchema = z.object({
-  cancellation_id: z.string().min(1, 'Cancellation ID is required'),
-  status: z.string().min(1, 'Status is required'),
+  cancellation_id: z.string().min(1, "Cancellation ID is required"),
+  status: z.string().min(1, "Status is required"),
 });
 
 export const CancellationStatusSchema = z.object({
-  id: z.string().min(1, 'Cancellation ID is required'),
-  status: z.string().min(1, 'Status is required'),
+  id: z.string().min(1, "Cancellation ID is required"),
+  status: z.string().min(1, "Status is required"),
   cancelled_count: z.number().int().nonnegative().optional(),
-  created_at: z.string().datetime('Invalid created date format').optional(),
-  updated_at: z.string().datetime('Invalid updated date format').optional(),
+  created_at: z.string().datetime("Invalid created date format").optional(),
+  updated_at: z.string().datetime("Invalid updated date format").optional(),
 });
 
 export const ApiErrorSchema = z.object({
-  error: z.string().min(1, 'Error message is required'),
-  message: z.string().min(1, 'Error message is required'),
+  error: z.string().min(1, "Error message is required"),
+  message: z.string().min(1, "Error message is required"),
   code: z.number().int().optional(),
 });
 
 export const ApiConfigSchema = z.object({
-  signingKey: z.string().min(1, 'Signing key is required'),
-  baseUrl: z.string().url('Invalid base URL format').optional(),
-  environmentSlug: z.string().min(1, 'Environment slug must be a non-empty string').optional(),
+  signingKey: z.string().min(1, "Signing key is required"),
+  baseUrl: z.string().url("Invalid base URL format").optional(),
+  environmentSlug: z.string().min(1, "Environment slug must be a non-empty string").optional(),
 });
 
 // Type inference from schemas
