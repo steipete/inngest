@@ -100,9 +100,9 @@ describe("Command Logic Integration", () => {
       getCancellationStatus: vi.fn(),
     };
 
-    mockClient.mockImplementation(
-      () => mockClientInstance as unknown as InstanceType<typeof InngestClient>,
-    );
+    mockClient.mockImplementation(function () {
+      return mockClientInstance as unknown as InstanceType<typeof InngestClient>;
+    });
     mockValidateRunId.mockImplementation(
       (id: string) => id.length === 26 && /^[0-9A-HJKMNP-TV-Z]{26}$/.test(id),
     );
@@ -114,7 +114,9 @@ describe("Command Logic Integration", () => {
       watchRun: vi.fn().mockResolvedValue(undefined),
       watchEventRuns: vi.fn().mockResolvedValue(undefined),
     };
-    mockRunWatcher.mockImplementation(() => mockRunWatcherInstance);
+    mockRunWatcher.mockImplementation(function () {
+      return mockRunWatcherInstance;
+    });
   });
 
   describe("List command pagination hints", () => {
