@@ -88,8 +88,10 @@ export class RunWatcher {
           lastRunCount = runs.length;
         }
 
-        // Check if all runs are completed
-        const activeRuns = runs.filter((run) => run.status === "Running");
+        // Check if all runs are completed or still pending
+        const activeRuns = runs.filter(
+          (run) => run.status === "Running" || run.status === "Queued",
+        );
         if (activeRuns.length === 0 && runs.length > 0) {
           this.stopWatching();
           displayInfo("All runs completed");

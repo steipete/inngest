@@ -54,6 +54,26 @@ describe("RunWatcher", () => {
     expect(consoleClearSpy).toHaveBeenCalled();
   });
 
+  it("keeps watching when all event runs are still Queued (not yet started)", async () => {
+    const queuedRun: InngestRun = { ...baseRun, status: "Queued" as const };
+    const getEventRuns = vi
+      .fn()
+      .mockResolvedValueOnce([queuedRun])
+      .mockResolvedValueOnce([
+        { ...baseRun, status: "Completed" as const, ended_at: "2025-09-24T19:05:00.000Z" },
+      ]);
+
+    const watcher = new RunWatcher({ getEventRuns } as unknown as InngestClient);
+
+    await watcher.watchEventRuns("01JY7ZQ3N1R6V9T2X5C8B4K7M0", { pollInterval: 1000 });
+    await vi.advanceTimersByTimeAsync(1000);
+
+    // A Queued run has not finished, so the watcher must keep polling and only
+    // stop once every run reaches a terminal state.
+    expect(getEventRuns).toHaveBeenCalledTimes(2);
+    expect(displayInfo).toHaveBeenLastCalledWith("All runs completed");
+  });
+
   it("stops watching when timeout is reached", async () => {
     const getRun = vi.fn().mockResolvedValue(baseRun);
     const watcher = new RunWatcher({ getRun } as unknown as InngestClient);
