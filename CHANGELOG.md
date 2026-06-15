@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Kept event watches active while runs are queued instead of reporting them complete before execution starts. Thanks @devYRPauli.
+
 ## [0.10.1] - 2025-09-24
 
 ### Added
