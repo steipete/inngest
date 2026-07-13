@@ -4,8 +4,8 @@ Welcome! This repository contains a TypeScript CLI for interacting with the Inng
 
 ## Environment & Tooling
 
-- Node.js `>=18` required (checked via `package.json` engines). Prefer 18.18+ to match local dev.
-- Dependencies are managed with npm. Run `npm install` before building or testing.
+- Node.js `>=20` required (checked via `package.json` engines).
+- Dependencies are managed with pnpm. Run `pnpm install` before building or testing.
 - TypeScript sources live in `src/`; compiled output goes to `dist/` via `tsc`.
 - The published package name is `@steipete/inngest`; the executable is `dist/cli.js` (exposed as `inngest`).
 - Environment variable `INNGEST_SIGNING_KEY` is mandatory for commands that touch the live API. Optional overrides: `INNGEST_API_URL`, `INNGEST_DEV_SERVER_URL`, `INNGEST_DEV_SERVER_PORT`, `INNGEST_ENV`.
@@ -43,7 +43,7 @@ Welcome! This repository contains a TypeScript CLI for interacting with the Inng
 
 ## Operational Checklist for Agents
 
-1. Install dependencies with `npm install` (skip if `node_modules/` already present and up to date).
+1. Install dependencies with `pnpm install` (skip if `node_modules/` already present and up to date).
 2. For CLI changes, run `npm run build` and execute the relevant `dist/cli.js` command to validate behavior locally.
 3. Run `npm run check` before handing off significant changes.
 4. Document user-facing additions in `CHANGELOG.md` and `README.md` when shipping features.
