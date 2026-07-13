@@ -31,7 +31,7 @@ inngest/
 
 ### Technology Stack
 
-- **Runtime**: Node.js 18+
+- **Runtime**: Node.js 20+
 - **Language**: TypeScript with strict mode
 - **Validation**: Zod 4.x for runtime type checking
 - **CLI Framework**: Commander.js for argument parsing
@@ -414,7 +414,7 @@ npm install -g @steipete/inngest
 
 ### System Requirements
 
-- Node.js 18+ (specified in engines)
+- Node.js 20+ (specified in engines)
 - Network access to api.inngest.com
 - Environment variable access
 

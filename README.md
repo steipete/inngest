@@ -17,6 +17,8 @@ A powerful CLI for managing [Inngest](https://inngest.com) jobs with support for
 
 ## Installation
 
+Node.js 20 or newer is required.
+
 ```bash
 npm install -g @steipete/inngest
 ```
