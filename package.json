@@ -35,30 +35,31 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "pnpm run format:check && oxlint --deny-warnings src test",
-    "lint:fix": "pnpm run format && oxlint --fix src test",
+    "test:smoke": "node test-cli.js",
+    "lint": "pnpm run format:check && oxlint --deny-warnings src test-cli.js",
+    "lint:fix": "pnpm run format && oxlint --fix src test-cli.js",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "check": "pnpm run lint && pnpm run build && pnpm run test",
     "prepublishOnly": "pnpm run check"
   },
   "dependencies": {
-    "axios": "^1.18.1",
+    "axios": "^1.20.0",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "commander": "^14.0.3",
     "dotenv": "^17.4.2",
     "ora": "^9.4.1",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.4.0",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
-    "@vitest/coverage-v8": "^4.1.10",
-    "oxfmt": "^0.58.0",
-    "oxlint": "^1.73.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": ">=20.0.0"

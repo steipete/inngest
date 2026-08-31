@@ -409,14 +409,23 @@ $ inngest list --limit 3
 The CLI includes comprehensive validation and error handling. You can test the CLI functionality:
 
 ```bash
-# Run the included test script
-node test-cli.js
+# Install dependencies with the pinned pnpm version, then run all checks
+pnpm install --frozen-lockfile
+pnpm check
+
+# Exercise the built CLI against a local HTTP fixture (no account required)
+pnpm test:smoke
 
 # Test specific commands
 inngest --help
 inngest --version
 inngest status --run <valid-run-id>
 ```
+
+GitHub Actions runs lint, build, the full test suite, and the HTTP smoke check on
+Node.js 20, 22, 24, and 26 for pull requests and pushes to `main`. The smoke check
+verifies JSON and table output plus authentication-error handling using synthetic
+data served on loopback; it does not contact the hosted Inngest API.
 
 ### API Testing
 

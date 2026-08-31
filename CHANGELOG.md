@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated HTTP and validation dependencies, including upstream proxy-bypass and error-reporting fixes.
 - Updated the supported runtime to Node.js 20 or newer to match the CLI's runtime dependencies.
 
 ### Fixed
