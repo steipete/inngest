@@ -1,6 +1,6 @@
 {
   "name": "@steipete/inngest",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "description": "CLI for managing Inngest jobs - watch, cancel, filter by status",
   "keywords": [
     "cli",

@@ -33,7 +33,7 @@ Welcome! This repository contains a TypeScript CLI for interacting with the Inng
 - The CLI relies on strict Zod schemas; when backend responses change, update both the schema (`src/api/types.ts`) and any pretty-printers in `src/utils/display.ts` to avoid runtime validation failures (recent issue seen in `inngest jobs` command with missing fields).
 - `biome.json` configures lint/format; respect its style to reduce diff noise.
 - Keep CLI UX consistent: update both Commander definitions (flags, descriptions) and README usage examples when adding options.
-- Publishing happens through npm (`npm publish`); verify `npm view inngest-cli version` against local `dist` if release alignment matters.
+- Publishing happens through npm; follow [RELEASING.md](RELEASING.md) and verify `npm view @steipete/inngest version` against the built CLI.
 
 ## Testing Tips
 
@@ -54,6 +54,6 @@ Welcome! This repository contains a TypeScript CLI for interacting with the Inng
 - Primary docs: `README.md`
 - Licensing: `LICENSE`
 - Issue tracker: https://github.com/steipete/inngest/issues
-- npm package: `inngest-cli` (alias for the published binary version)
+- npm package: `@steipete/inngest`
 
 Keep this file updated as workflows evolve. Happy shipping!
