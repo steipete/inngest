@@ -366,10 +366,7 @@ npm run check     # All quality checks
 
 ### Release Process
 
-1. Version bump in `package.json`
-2. Run `npm run check` (lint + test + build)
-3. Tag release
-4. Publish to npm registry
+Follow [RELEASING.md](../RELEASING.md) for versioning, local and CI gates, npm publication, and the tag-triggered GitHub Release workflow.
 
 ## Extensibility
 

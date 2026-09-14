@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Validate release tag and exact commit CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$(git cat-file -t "refs/tags/$RELEASE_TAG")" == tag ]]
+          release_sha=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+          tag_object=$(git rev-parse "refs/tags/$RELEASE_TAG")
+          [[ "$GITHUB_SHA" == "$release_sha" || "$GITHUB_SHA" == "$tag_object" ]]
+          git merge-base --is-ancestor "$release_sha" origin/main
+          [[ "$(node -p 'require("./package.json").version')" == "${RELEASE_TAG#v}" ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$release_sha&status=completed&per_page=100" > "$RUNNER_TEMP/ci.json"
+          jq -e --arg sha "$release_sha" \
+            '[.workflow_runs[] | select(.head_sha == $sha and .head_branch == "main" and .event == "push" and .conclusion == "success")] | length > 0' \
+            "$RUNNER_TEMP/ci.json"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm test:smoke
+      - name: Verify published npm archive and prepare release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/release-assets"
+          npm view "@steipete/inngest@${RELEASE_TAG#v}" --json > "$RUNNER_TEMP/npm.json"
+          node --input-type=module <<'NODE'
+          import { createHash } from "node:crypto";
+          import { readFileSync, writeFileSync } from "node:fs";
+          const version = process.env.RELEASE_TAG.slice(1);
+          const temp = process.env.RUNNER_TEMP;
+          const metadata = JSON.parse(readFileSync(`${temp}/npm.json`, "utf8"));
+          if (metadata.name !== "@steipete/inngest" || metadata.version !== version) {
+            throw new Error("Published npm metadata does not match the release");
+          }
+          const tarball = new URL(metadata.dist.tarball);
+          if (tarball.origin !== "https://registry.npmjs.org") throw new Error("Unexpected npm tarball origin");
+          const response = await fetch(tarball);
+          if (!response.ok) throw new Error(`npm archive download failed: ${response.status}`);
+          const bytes = Buffer.from(await response.arrayBuffer());
+          const integrity = `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
+          if (integrity !== metadata.dist.integrity) throw new Error("npm archive integrity mismatch");
+          const archive = `steipete-inngest-${version}.tgz`;
+          writeFileSync(`${temp}/release-assets/${archive}`, bytes);
+          writeFileSync(`${temp}/release-assets/SHA256SUMS`, `${createHash("sha256").update(bytes).digest("hex")}  ${archive}\n`);
+          const changelog = readFileSync("CHANGELOG.md", "utf8");
+          const section = changelog.split(/^## /m).find((part) => part.startsWith(`[${version}] - `));
+          if (!section || !/^\[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2}\n/.test(section)) {
+            throw new Error("Missing dated changelog section");
+          }
+          const notes = section.slice(section.indexOf("\n") + 1).trim();
+          if (!notes) throw new Error("Empty release notes");
+          const ci = JSON.parse(readFileSync(`${temp}/ci.json`, "utf8")).workflow_runs.find((run) =>
+            run.head_branch === "main" && run.event === "push" && run.conclusion === "success");
+          writeFileSync(`${temp}/release-notes.md`, `${notes}\n\n` +
+            `npm: https://www.npmjs.com/package/@steipete/inngest/v/${version}\n\n` +
+            `Registry tarball: ${tarball.href}\n\n` +
+            `Integrity: \`${integrity}\`\n\n` +
+            `CI: ${ci.html_url}\n\n` +
+            `Release verification: https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}\n`);
+          console.log(`Verified @steipete/inngest@${version}: ${integrity}`);
+          NODE
+      - name: Compare published package with the tagged build
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/source-pack" "$RUNNER_TEMP/source-package" "$RUNNER_TEMP/published-package"
+          npm pack --pack-destination "$RUNNER_TEMP/source-pack"
+          archive="steipete-inngest-${RELEASE_TAG#v}.tgz"
+          tar -xzf "$RUNNER_TEMP/source-pack/$archive" -C "$RUNNER_TEMP/source-package"
+          tar -xzf "$RUNNER_TEMP/release-assets/$archive" -C "$RUNNER_TEMP/published-package"
+          diff --recursive --no-dereference "$RUNNER_TEMP/source-package" "$RUNNER_TEMP/published-package"
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/release-assets"
+          sha256sum -c SHA256SUMS
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "$RELEASE_TAG" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            "steipete-inngest-${RELEASE_TAG#v}.tgz" SHA256SUMS
