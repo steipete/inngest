@@ -41,3 +41,4 @@ jobs:
         execFileSync("./node_modules/.bin/inngest", ["--help"], { stdio: "inherit" });'
       ci-check-events: '["push"]'
       strict-checks: true
+      require-signed-tag: true

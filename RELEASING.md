@@ -6,7 +6,7 @@ Publication runs through [release.yml](.github/workflows/release.yml), using [`o
 
 ## Publisher prerequisite
 
-The npm package must authorize GitHub Actions trusted publishing from repository `steipete/inngest`, workflow filename `release.yml`. The reusable workflow's filename is not the trusted caller. This is an owner-managed access setting: verify it before enabling publication. No npm token or `NODE_AUTH_TOKEN` secret is used. A successful dry run does not prove that npm has authorized the publisher.
+The npm package must authorize GitHub Actions trusted publishing from repository `steipete/inngest`, workflow filename `release.yml`. The reusable workflow's filename is not the trusted caller. Configure it through the approved npm-service helper immediately before the first OIDC publication. An unused trust record expires after two days without a successful OIDC publish; a dry run does not activate it. If it expires, delete the expired record and recreate the same repository/workflow relationship immediately before release. No npm token or `NODE_AUTH_TOKEN` secret is used. A successful dry run does not prove that npm has authorized the publisher.
 
 ## Prepare and rehearse
 
@@ -23,7 +23,7 @@ The rehearsal validates, builds, packs, installs, and tests without creating a t
 
 ## Publish and verify
 
-Only after explicit release authorization and a successful rehearsal, verify the publisher prerequisite and create an annotated `vX.Y.Z` tag at the prepared commit, preserving the existing annotated-tag convention. Push that tag to start publication. Do not publish locally first, move an existing tag, or overwrite an npm version.
+Only after explicit release authorization and a successful rehearsal, verify the publisher prerequisite and create an SSH-signed annotated `vX.Y.Z` tag at the prepared commit using the release key authorized in `.github/release-allowed-signers`. The workflow requires and verifies that signature against the policy from the tagged commit. Push that tag to start publication. Do not publish locally first, move an existing tag, or overwrite an npm version.
 
 Wait for the exact workflow run to pass. Verify `npm view @steipete/inngest@X.Y.Z` reports the intended version, dist-tag, tarball, integrity, and publication time. Check the GitHub Release and its changelog body, download its archive and `SHA256SUMS`, and install the archive in a scratch directory to test `inngest --version` and `--help`.
 
