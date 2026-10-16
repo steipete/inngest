@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Publish npm packages and GitHub Releases through the shared Actions release workflow, with a no-publish rehearsal and independent checks of the packed CLI.
+
+### Fixed
+
+- Keep `--version` and other CLI output free of dotenv startup messages when no signing key is configured.
+
 ## [0.10.4] - 2026-09-13
 
 **Highlights:** Event watches stay active while runs are queued (thanks @devYRPauli), and the CLI now requires Node.js 20 or newer.

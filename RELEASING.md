@@ -1,16 +1,30 @@
 # Releasing
 
-The package is `@steipete/inngest`, with the `inngest` executable. Node.js 20 or newer is required. npm is the install channel; GitHub Releases mirror the published npm archive with a SHA-256 checksum. There are no native binaries, Homebrew formula, or appcast.
+The package is `@steipete/inngest`, with the `inngest` executable. Node.js 20 or newer is required. npm is the install channel; GitHub Releases contain the same verified npm archive and checksums. There are no native binaries, Homebrew formula, or appcast.
 
-Versions 0.10.2 and 0.10.3 were published locally to npm on September 24, 2025 with annotated, unsigned Git tags and no GitHub Releases. Their changelog sections were reconstructed from those tags when preparing 0.10.4. The GitHub Release workflow follows the tag-triggered, npm-first pattern used by `steipete/summarize`.
+Publication runs through [release.yml](.github/workflows/release.yml), using [`openclaw/release-workflows`' npm archetype at `@v1`](https://github.com/openclaw/release-workflows/blob/v1/README.md). It freezes the protected source commit, builds with pnpm 10.34.5 and Node.js 24, verifies the packed CLI on independent x64 and arm64 runners, publishes those exact bytes with npm trusted publishing, verifies registry integrity and provenance, and creates the GitHub Release. Stable versions use `latest`; prereleases use `next`. The runtime minimum remains Node.js 20.
 
-1. Start from clean, synchronized `main`. Confirm the latest registry version with `npm view @steipete/inngest versions dist-tags --json` and check that the intended tag and GitHub Release do not exist.
-2. On a release branch, bump `package.json` and finalize the current changelog section with the local release date. The CLI reads its version from package metadata; the pnpm lockfile has no root version field.
-3. Run `pnpm install --frozen-lockfile`, `pnpm check`, and `pnpm test:smoke`. Review the complete release change and merge its PR. Wait for all four Node versions in CI to pass on the exact `main` release commit.
-4. Immediately before tagging, recheck the remote releases and tags. Create an annotated tag (`git tag -a vX.Y.Z -m "Release vX.Y.Z" <release-commit>`), matching the existing unsigned tag convention.
-5. Publish locally from that clean release commit with the approved npm authentication helper. The helper uses a temporary npm configuration and runs the package's `prepublishOnly` gate. Verify the registry version, `latest` tag, tarball, integrity, and publication time before pushing the tag. Do not republish an existing version or substitute credentials after an authentication failure.
-6. Push the tag to trigger `.github/workflows/release.yml`. It checks annotated-tag identity, ancestry on `main`, package version, successful push CI, and npm publication. It runs the local gates again, downloads the published npm archive, verifies its SHA-512 integrity, compares every packaged file with a fresh package built from the tag, and creates a GitHub Release with the archive and `SHA256SUMS`. Release notes come from the exact changelog section and include npm and proof links. Only the built-in GitHub token is needed; npm credentials stay in the local publication step.
-7. Wait for the release workflow to finish. Download the GitHub assets, verify `SHA256SUMS`, and compare the archive with npm's integrity. Install the package in a scratch directory and verify `inngest --version` and `--help`.
-8. Reopen an empty `## [Unreleased]` section above the finalized release, review and commit it as `chore: open X.Y.Z unreleased` for the next patch, and push or merge it. Leave the checkout clean on synchronized `main` and remove task branches and generated build output.
+## Publisher prerequisite
 
-If npm publication succeeds but the tag workflow fails, preserve the version and tag. Fix or rerun the workflow after diagnosing the failure; never move a published tag or publish different bytes under the same npm version.
+The npm package must authorize GitHub Actions trusted publishing from repository `steipete/inngest`, workflow filename `release.yml`. The reusable workflow's filename is not the trusted caller. This is an owner-managed access setting: verify it before enabling publication. No npm token or `NODE_AUTH_TOKEN` secret is used. A successful dry run does not prove that npm has authorized the publisher.
+
+## Prepare and rehearse
+
+1. Start from clean, synchronized `main`. Check current npm versions and dist-tags, tags, and GitHub Releases.
+2. Prepare the package version and a dated changelog section in a PR, preserving contributor credit and leaving an empty `## [Unreleased]` section above it. The CLI reads its version from package metadata; the pnpm lockfile has no root version field.
+3. Run `pnpm install --frozen-lockfile`, `pnpm check`, and `pnpm test:smoke`. Review and merge the preparation PR. Require successful independent push CI on that exact commit, including all supported Node versions.
+4. Dispatch a rehearsal on merged `main` using the prepared version:
+
+   ```bash
+   gh workflow run release.yml --ref main -f version=X.Y.Z -F dry_run=true
+   ```
+
+The rehearsal validates, builds, packs, installs, and tests without creating a tag, publishing to npm, or creating a GitHub Release. It always checks current protected main even when that version already has a historical tag.
+
+## Publish and verify
+
+Only after explicit release authorization and a successful rehearsal, verify the publisher prerequisite and create an annotated `vX.Y.Z` tag at the prepared commit, preserving the existing annotated-tag convention. Push that tag to start publication. Do not publish locally first, move an existing tag, or overwrite an npm version.
+
+Wait for the exact workflow run to pass. Verify `npm view @steipete/inngest@X.Y.Z` reports the intended version, dist-tag, tarball, integrity, and publication time. Check the GitHub Release and its changelog body, download its archive and `SHA256SUMS`, and install the archive in a scratch directory to test `inngest --version` and `--help`.
+
+If publication partially succeeds, preserve the version and tag. Follow the shared workflow's immutable-byte recovery contract; an existing npm version is accepted only when its integrity, downloaded bytes, and provenance match. Never rerun a live publication speculatively. Leave the checkout clean on synchronized `main` after closeout.

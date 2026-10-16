@@ -4,8 +4,7 @@ import { type ApiConfig, ApiConfigSchema } from "../api/types.js";
 
 // Only load .env file if INNGEST_SIGNING_KEY is not already set
 if (process.env.NODE_ENV !== "test" && !process.env.INNGEST_SIGNING_KEY) {
-  process.env.DOTENVX_QUIET = "true";
-  config();
+  config({ quiet: true });
 }
 
 const EnvSchema = z.object({
