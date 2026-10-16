@@ -17,7 +17,7 @@ Welcome! This repository contains a TypeScript CLI for interacting with the Inng
 - Test suite: `npm test`
 - Test with coverage: `npm run test:coverage`
 - Lint/format: `npm run lint` (check only) and `npm run lint:fix` or `npm run format`
-- Full CI parity: `npm run check` (lint → test → build). This runs automatically on publish (`prepublishOnly`).
+- Full CI parity: `npm run check` (lint → build → test). Release CI runs the checks before packing the publication artifact.
 
 ## Repo Layout Highlights
 
@@ -33,7 +33,7 @@ Welcome! This repository contains a TypeScript CLI for interacting with the Inng
 - The CLI relies on strict Zod schemas; when backend responses change, update both the schema (`src/api/types.ts`) and any pretty-printers in `src/utils/display.ts` to avoid runtime validation failures (recent issue seen in `inngest jobs` command with missing fields).
 - `biome.json` configures lint/format; respect its style to reduce diff noise.
 - Keep CLI UX consistent: update both Commander definitions (flags, descriptions) and README usage examples when adding options.
-- Publishing happens through npm; follow [RELEASING.md](RELEASING.md) and verify `npm view @steipete/inngest version` against the built CLI.
+- Publishing happens through GitHub Actions with npm trusted publishing; follow [RELEASING.md](RELEASING.md). Use its no-publish rehearsal before an authorized release, and verify `npm view @steipete/inngest version` against the built CLI.
 
 ## Testing Tips
 

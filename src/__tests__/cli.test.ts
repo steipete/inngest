@@ -1,12 +1,20 @@
 import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // Helper to run the CLI and capture output
-function runCLI(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+function runCLI(
+  args: string[],
+  env: NodeJS.ProcessEnv = {},
+  cwd?: string,
+): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const cliPath = require.resolve("../../dist/cli.js");
     const proc = spawn("node", [cliPath, ...args], {
-      env: { ...process.env },
+      env: { ...process.env, ...env },
+      cwd,
     });
 
     let stdout = "";
@@ -71,6 +79,22 @@ describe("CLI Behavior", () => {
   });
 
   describe("Version command", () => {
+    it("prints only the version outside test mode without a signing key", async () => {
+      const cwd = mkdtempSync(join(tmpdir(), "inngest-version-"));
+      try {
+        const result = await runCLI(
+          ["--version"],
+          { NODE_ENV: "production", INNGEST_SIGNING_KEY: "" },
+          cwd,
+        );
+        expect(result.code).toBe(0);
+        expect(result.stdout).toBe(`${require("../../package.json").version}\n`);
+        expect(result.stderr).toBe("");
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+
     it("should display version with --version flag and exit with code 0", async () => {
       const result = await runCLI(["--version"]);
 

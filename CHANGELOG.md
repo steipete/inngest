@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep `--version` and other CLI output free of dotenv startup messages when no signing key is configured.
+
 ## [0.10.4] - 2026-09-13
 
 **Highlights:** Event watches stay active while runs are queued (thanks @devYRPauli), and the CLI now requires Node.js 20 or newer.
