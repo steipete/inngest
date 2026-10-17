@@ -1,5 +1,48 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getConfig, validateEventId, validateRunId } from "../utils/config.js";
+
+describe("production .env loading", () => {
+  it.each([false, true])(
+    "preserves quiet output and precedence with a supplied key: %s",
+    async (hasKey) => {
+      const cwd = mkdtempSync(join(tmpdir(), "inngest-env-"));
+      const originalEnv = process.env;
+      const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(cwd);
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        writeFileSync(
+          join(cwd, ".env"),
+          "INNGEST_SIGNING_KEY=synthetic-file-key\nINNGEST_API_URL=https://file.example\nINNGEST_ENV=file-env\n",
+        );
+        process.env = {
+          NODE_ENV: "production",
+          INNGEST_API_URL: "https://existing.example",
+          ...(hasKey ? { INNGEST_SIGNING_KEY: "synthetic-env-key" } : {}),
+        };
+        vi.resetModules();
+        const { getConfig: readConfig } = await import("../utils/config.js");
+        expect(readConfig()).toEqual({
+          signingKey: hasKey ? "synthetic-env-key" : "synthetic-file-key",
+          baseUrl: "https://existing.example",
+          ...(hasKey ? {} : { environmentSlug: "file-env" }),
+        });
+        expect(logSpy).not.toHaveBeenCalled();
+        expect(errorSpy).not.toHaveBeenCalled();
+      } finally {
+        process.env = originalEnv;
+        cwdSpy.mockRestore();
+        logSpy.mockRestore();
+        errorSpy.mockRestore();
+        vi.resetModules();
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    },
+  );
+});
 
 describe("Config Utils", () => {
   const originalEnv = process.env;
