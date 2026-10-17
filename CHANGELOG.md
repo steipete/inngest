@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Unblock dependency security updates by replacing Oxfmt's vulnerable tinypool pin and refreshing source-map-js; add weekly grouped dependency updates while preserving Node.js 20 support.
 - Keep `--version` and other CLI output free of dotenv startup messages when no signing key is configured.
 
 ## [0.10.4] - 2026-09-13
