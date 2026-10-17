@@ -6,7 +6,7 @@ Welcome! This repository contains a TypeScript CLI for interacting with the Inng
 
 - Node.js `>=20` required (checked via `package.json` engines).
 - Dependencies are managed with pnpm. Run `pnpm install` before building or testing.
-- Dependabot groups weekly npm patch/minor updates and security updates in `.github/dependabot.yml`. Majors that drop Node.js 20 are deferred. No release-age cooldown is configured.
+- Dependabot groups weekly npm patch/minor updates and security updates in `.github/dependabot.yml`. Majors that drop Node.js 20 are deferred. Keep version updates at least three days old: Dependabot's cooldown and pnpm's `minimumReleaseAge: 4320` align with the updater's release-age gate. Do not raise a manifest's minimum version to an ineligible release, even if a frozen install passes.
 - Oxfmt 0.66 pinned vulnerable `tinypool@2.1.0` exactly; updating the transitive package alone cannot override that requirement. Keep Oxfmt on a patched release (0.73 or newer), regenerate the lockfile with pnpm, and retain the dependency-security regression tests. The Vite and esbuild overrides live in `pnpm-workspace.yaml`.
 - TypeScript sources live in `src/`; compiled output goes to `dist/` via `tsc`.
 - The published package name is `@steipete/inngest`; the executable is `dist/cli.js` (exposed as `inngest`).
