@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Update dotenv to 18.0.8 for upstream parsing and type fixes while retaining quiet environment loading and Node.js 20 support.
 - Align local dependency resolution with Dependabot's three-day release-age gate so recently published minimum versions cannot block unrelated updates.
 - Update dotenv while preserving quiet `.env` loading and existing environment-variable precedence.
 - Unblock dependency security updates by replacing Oxfmt's vulnerable tinypool pin and refreshing source-map-js; add weekly grouped dependency updates while preserving Node.js 20 support.
