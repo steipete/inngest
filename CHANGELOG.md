@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Align local dependency resolution with Dependabot's three-day release-age gate so recently published minimum versions cannot block unrelated updates.
 - Update dotenv while preserving quiet `.env` loading and existing environment-variable precedence.
 
+### Verification
+
+[npm 0.10.5](https://www.npmjs.com/package/@steipete/inngest/v/0.10.5) · [Registry tarball](https://registry.npmjs.org/@steipete/inngest/-/inngest-0.10.5.tgz) · [Integrity and provenance metadata](https://registry.npmjs.org/@steipete/inngest/0.10.5) · [Release checksums](https://github.com/steipete/inngest/releases/download/v0.10.5/SHA256SUMS) · [Publication CI](https://github.com/steipete/inngest/actions/runs/39477775097)
+
 ## [0.10.4] - 2026-09-13
 
 **Highlights:** Event watches stay active while runs are queued (thanks @devYRPauli), and the CLI now requires Node.js 20 or newer.
