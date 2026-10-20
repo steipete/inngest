@@ -7,13 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-10-20
+
+**Highlights:** Keep CLI output free of dotenv startup messages and update dependencies to address the tinypool security vulnerability while retaining Node.js 20 support.
+
 ### Fixed
 
+- Keep `--version` and other CLI output free of dotenv startup messages when no signing key is configured.
+- Unblock dependency security updates by replacing Oxfmt's vulnerable tinypool pin and refreshing source-map-js; add weekly grouped dependency updates while preserving Node.js 20 support.
 - Update dotenv to 18.0.8 for upstream parsing and type fixes while retaining quiet environment loading and Node.js 20 support.
 - Align local dependency resolution with Dependabot's three-day release-age gate so recently published minimum versions cannot block unrelated updates.
 - Update dotenv while preserving quiet `.env` loading and existing environment-variable precedence.
-- Unblock dependency security updates by replacing Oxfmt's vulnerable tinypool pin and refreshing source-map-js; add weekly grouped dependency updates while preserving Node.js 20 support.
-- Keep `--version` and other CLI output free of dotenv startup messages when no signing key is configured.
 
 ## [0.10.4] - 2026-09-13
 
