@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { InngestClient } from "../api/client.js";
-import { getConfig, validateEventId, validateRunId } from "../utils/config.js";
+import { type Environment, getConfig, validateEventId, validateRunId } from "../utils/config.js";
 import { displayError } from "../utils/display.js";
 import { RunWatcher } from "../utils/polling.js";
 
@@ -28,9 +28,14 @@ export function createWatchCommand(): Command {
       }
       return num;
     })
-    .action(async (options) => {
+    .action(async (options, command) => {
       try {
-        const config = getConfig();
+        const globalOpts = command.parent?.opts() || {};
+        const config = getConfig({
+          env: globalOpts.env as Environment,
+          devPort: globalOpts.devPort,
+          environmentSlug: globalOpts.envSlug,
+        });
         const client = new InngestClient(config);
         const watcher = new RunWatcher(client);
 
