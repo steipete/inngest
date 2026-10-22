@@ -7,7 +7,10 @@ export const InngestRunSchema = z.object({
   run_id: z.string().min(1, "Run ID is required"),
   status: RunStatusSchema,
   run_started_at: z.string().datetime("Invalid start date format"),
-  ended_at: z.string().datetime("Invalid end date format").optional(),
+  ended_at: z
+    .union([z.string().datetime("Invalid end date format"), z.null()])
+    .optional()
+    .transform((value) => value ?? undefined),
   output: z.unknown().optional(),
   event_id: z.string().optional(),
   function_id: z.string().optional(),

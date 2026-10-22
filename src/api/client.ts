@@ -15,10 +15,9 @@ import {
   type InngestEvent,
   InngestEventSchema,
   type InngestJob,
+  InngestJobSchema,
   type InngestRun,
   InngestRunSchema,
-  type JobsResponse,
-  JobsResponseSchema,
   type ListRunsResponse,
   ListRunsResponseSchema,
 } from "./types.js";
@@ -156,19 +155,19 @@ export class InngestClient {
       }
     }
 
-    // Search recent events for runs with matching partial ID
+    // Search runs started by recent events. data.run_id is the sender payload.
     try {
       const events = await this.listEvents({ limit: 200 });
 
       for (const event of events.data) {
-        const eventRecord = event as Record<string, unknown>;
-        if (eventRecord.data && typeof eventRecord.data === "object" && eventRecord.data !== null) {
-          const eventData = eventRecord.data as Record<string, unknown>;
-          if (typeof eventData.run_id === "string" && eventData.run_id.endsWith(partialId)) {
-            try {
-              return await this.getRun(eventData.run_id);
-            } catch {}
-          }
+        const eventId = this.eventInternalId(event);
+        if (!eventId) continue;
+        try {
+          const runs = await this.getEventRuns(eventId);
+          const match = runs.find((run) => run.run_id.endsWith(partialId));
+          if (match) return match;
+        } catch {
+          // A missing event run list should not hide a later match.
         }
       }
 
@@ -223,24 +222,21 @@ export class InngestClient {
     const eventsParams = this.buildEventsParams(sanitizedOptions);
     const { events: initialEvents, response: initialResponse } =
       await this.fetchInitialEvents(eventsParams);
-    const events = await this.expandEvents(
+    const { events, hasMore } = await this.expandEvents(
       initialEvents,
       eventsParams,
       initialResponse,
       sanitizedOptions,
     );
     const runs = await this.enrichRunsFromEvents(events, sanitizedOptions);
+    const cursor = hasMore ? this.nextEventCursor(events) : undefined;
 
-    return this.buildRunsResponse(runs, sanitizedOptions.limit);
+    return this.buildRunsResponse(runs, cursor, hasMore);
   }
 
   async getJobs(runId: string): Promise<InngestJob[]> {
     const response = await this.client.get(`/v1/runs/${runId}/jobs`);
-    const validatedResponse = this.validateResponse<JobsResponse>(
-      response.data,
-      JobsResponseSchema,
-    );
-    return validatedResponse.data;
+    return this.jobRows(response.data).map((row) => this.normalizeJob(row, runId));
   }
 
   async cancelRun(runId: string): Promise<void> {
@@ -288,8 +284,24 @@ export class InngestClient {
   }
 
   async getCancellationStatus(cancellationId: string): Promise<CancellationStatus> {
-    const response = await this.client.get(`/v1/cancellations/${cancellationId}`);
-    return this.validateResponse<CancellationStatus>(response.data, CancellationStatusSchema);
+    const response = await this.client.get("/v1/cancellations");
+    const match = this.cancellationRows(response.data).find(
+      (row) => this.cancellationIdOf(row) === cancellationId,
+    );
+    if (!match || typeof match !== "object") {
+      throw new Error(`Cancellation ${cancellationId} was not found`);
+    }
+    const record = match as Record<string, unknown>;
+    return this.validateResponse<CancellationStatus>(
+      {
+        id: cancellationId,
+        status: record.status,
+        cancelled_count: record.cancelled_count,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+      },
+      CancellationStatusSchema,
+    );
   }
 
   getInputDataForRun(runId: string): unknown {
@@ -299,11 +311,13 @@ export class InngestClient {
   private async fetchAdditionalPages(
     baseParams: URLSearchParams,
     initialResponse: EventsApiResponse,
-  ): Promise<unknown[]> {
+  ): Promise<{ events: unknown[]; hasMore: boolean }> {
     const additionalEvents: unknown[] = [];
-    let currentCursor = initialResponse.data.metadata?.next_cursor;
+    const pageLimit = Number(baseParams.get("limit") || "0");
+    let currentCursor = this.nextEventCursor(initialResponse.data.data || []);
     let pagesLoaded = 0;
-    const maxAdditionalPages = 20; // Fetch up to 20 additional pages
+    const maxAdditionalPages = 20;
+    let hasMore = false;
 
     while (currentCursor && pagesLoaded < maxAdditionalPages) {
       const pageParams = new URLSearchParams(baseParams);
@@ -313,10 +327,11 @@ export class InngestClient {
 
       try {
         const eventsResponse = await this.client.get(`/v1/events?${pageParams}`);
-        const pageEvents = eventsResponse.data.data;
+        const pageEvents = eventsResponse.data.data as unknown[] | undefined;
 
         if (!pageEvents || pageEvents.length === 0) {
           this.debug(`No more events in page ${pagesLoaded + 2}`);
+          hasMore = false;
           break;
         }
 
@@ -326,21 +341,23 @@ export class InngestClient {
           `Page ${pagesLoaded + 1} loaded: ${pageEvents.length} events (${additionalEvents.length} total additional)`,
         );
 
-        // Check for next cursor
-        const nextCursor = eventsResponse.data.metadata?.next_cursor;
-        if (nextCursor && nextCursor !== currentCursor) {
-          currentCursor = nextCursor;
-        } else {
-          this.debug(`Reached end of pagination after ${pagesLoaded + 1} pages`);
+        const nextCursor = this.nextEventCursor(pageEvents);
+        const fullPage = pageLimit > 0 && pageEvents.length >= pageLimit;
+        if (!fullPage || !nextCursor || nextCursor === currentCursor) {
+          hasMore = false;
           break;
         }
+        hasMore = pagesLoaded >= maxAdditionalPages;
+        currentCursor = nextCursor;
+        if (hasMore) break;
       } catch {
         this.debug(`Error fetching page ${pagesLoaded + 2}, stopping pagination`);
+        hasMore = false;
         break;
       }
     }
 
-    return additionalEvents;
+    return { events: additionalEvents, hasMore };
   }
 
   private async fetchTimeBasedChunks(
@@ -462,12 +479,17 @@ export class InngestClient {
     eventsParams: URLSearchParams,
     initialResponse: EventsApiResponse,
     options: ListRunsQueryOptions,
-  ): Promise<unknown[]> {
-    const combinedEvents = [...initialEvents];
+  ): Promise<{ events: unknown[]; hasMore: boolean }> {
+    const eventLimit = Number(eventsParams.get("limit") || "0");
+    const initialCursor = this.nextEventCursor(initialEvents);
+    const initialFull =
+      eventLimit > 0 && initialEvents.length >= eventLimit && Boolean(initialCursor);
 
     if (!options.status) {
-      return combinedEvents;
+      return { events: initialEvents, hasMore: initialFull };
     }
+
+    const combinedEvents = [...initialEvents];
 
     const chunkOptions: { status: string; hours?: number; maxResults: number } = {
       status: options.status,
@@ -481,13 +503,15 @@ export class InngestClient {
     combinedEvents.push(...timeBasedEvents);
     this.debug(`Total events after time-based search: ${combinedEvents.length}`);
 
-    if (combinedEvents.length > 0) {
-      const additionalEvents = await this.fetchAdditionalPages(eventsParams, initialResponse);
-      combinedEvents.push(...additionalEvents);
-      this.debug(`Total events after all pagination: ${combinedEvents.length}`);
+    if (combinedEvents.length === 0) {
+      return { events: combinedEvents, hasMore: initialFull };
     }
 
-    return combinedEvents;
+    const additional = await this.fetchAdditionalPages(eventsParams, initialResponse);
+    combinedEvents.push(...additional.events);
+    this.debug(`Total events after all pagination: ${combinedEvents.length}`);
+
+    return { events: combinedEvents, hasMore: additional.hasMore };
   }
 
   private async enrichRunsFromEvents(
@@ -499,99 +523,117 @@ export class InngestClient {
   ): Promise<InngestRun[]> {
     const runs: InngestRun[] = [];
     const seenRunIds = new Set<string>();
-    const { functionNames, eventDataMap } = this.collectFunctionMetadata(events);
 
     for (const event of events) {
-      const runId = this.extractRunId(event);
-      if (!runId || seenRunIds.has(runId)) continue;
-      seenRunIds.add(runId);
+      const eventId = this.eventInternalId(event);
+      if (!eventId) continue;
 
+      let eventRuns: InngestRun[] = [];
       try {
-        const run = await this.getRun(runId);
-        const functionName = functionNames.get(runId);
-        const eventData = eventDataMap.get(runId);
-        const inputData = this.extractInputData(eventData);
-
-        if (inputData) {
-          this.inputDataCache.set(runId, inputData);
-        }
-
-        const enrichedRun: InngestRun = {
-          ...run,
-          function_name: functionName,
-        };
-
-        if (!this.runMatchesFilters(enrichedRun, options)) continue;
-
-        runs.push(enrichedRun);
+        eventRuns = await this.getEventRuns(eventId);
       } catch {
-        // Ignore errors for individual runs and continue processing others
+        continue;
+      }
+
+      const payload = this.senderPayload(event);
+      for (const run of eventRuns) {
+        if (seenRunIds.has(run.run_id)) continue;
+        seenRunIds.add(run.run_id);
+        if (payload) {
+          this.inputDataCache.set(run.run_id, payload);
+        }
+        if (!this.runMatchesFilters(run, options)) continue;
+        runs.push(run);
       }
     }
 
     return runs;
   }
 
-  private collectFunctionMetadata(events: unknown[]): {
-    functionNames: Map<string, string>;
-    eventDataMap: Map<string, unknown>;
-  } {
-    const functionNames = new Map<string, string>();
-    const eventDataMap = new Map<string, unknown>();
-
-    for (const event of events) {
-      const eventRecord = event as Record<string, unknown>;
-      if (!eventRecord?.data || typeof eventRecord.data !== "object" || eventRecord.data === null) {
-        continue;
-      }
-
-      const data = eventRecord.data as Record<string, unknown>;
-      const runId = typeof data.run_id === "string" ? data.run_id : null;
-      const functionId = typeof data.function_id === "string" ? data.function_id : null;
-
-      if (runId && functionId) {
-        functionNames.set(runId, functionId);
-        eventDataMap.set(runId, event);
-      }
-    }
-
-    return { functionNames, eventDataMap };
+  private eventInternalId(event: unknown): string | null {
+    if (!event || typeof event !== "object") return null;
+    const id = (event as Record<string, unknown>).internal_id;
+    return typeof id === "string" && id.length > 0 ? id : null;
   }
 
-  private extractRunId(event: unknown): string | null {
-    if (!event || typeof event !== "object") {
-      return null;
+  private nextEventCursor(events: unknown[]): string | undefined {
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const id = this.eventInternalId(events[index]);
+      if (id) return id;
     }
-
-    const eventRecord = event as Record<string, unknown>;
-    if (!eventRecord.data || typeof eventRecord.data !== "object" || eventRecord.data === null) {
-      return null;
-    }
-
-    const data = eventRecord.data as Record<string, unknown>;
-    return typeof data.run_id === "string" ? data.run_id : null;
+    return undefined;
   }
 
-  private extractInputData(eventData: unknown): unknown {
-    if (!eventData || typeof eventData !== "object") {
-      return null;
+  private senderPayload(event: unknown): unknown {
+    if (!event || typeof event !== "object") return null;
+    const data = (event as Record<string, unknown>).data;
+    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+    return data;
+  }
+
+  private jobRows(payload: unknown): unknown[] {
+    return this.rowsOf(payload);
+  }
+
+  private cancellationRows(payload: unknown): unknown[] {
+    return this.rowsOf(payload);
+  }
+
+  private rowsOf(payload: unknown): unknown[] {
+    if (Array.isArray(payload)) return payload;
+    if (!payload || typeof payload !== "object") return [];
+    const record = payload as Record<string, unknown>;
+    if (Array.isArray(record.data)) return record.data;
+    if (Array.isArray(record.cancellations)) return record.cancellations;
+    return [];
+  }
+
+  private cancellationIdOf(row: unknown): string | null {
+    if (!row || typeof row !== "object") return null;
+    const record = row as Record<string, unknown>;
+    if (typeof record.id === "string" && record.id.length > 0) return record.id;
+    if (typeof record.cancellation_id === "string" && record.cancellation_id.length > 0) {
+      return record.cancellation_id;
+    }
+    return null;
+  }
+
+  private normalizeJob(raw: unknown, runId: string): InngestJob {
+    if (!raw || typeof raw !== "object") {
+      throw new Error("API Response validation failed: job: expected object");
+    }
+    const record = raw as Record<string, unknown>;
+    if (!this.isQueueItem(record)) {
+      return this.validateResponse<InngestJob>(raw, InngestJobSchema);
     }
 
-    const eventRecord = eventData as Record<string, unknown>;
-    if (!eventRecord.data || typeof eventRecord.data !== "object" || eventRecord.data === null) {
-      return null;
-    }
+    const id = this.stringField(record, "JobID") || this.stringField(record, "id");
+    const startedAt = this.stringField(record, "at") || this.stringField(record, "started_at");
+    const step = this.stringField(record, "kind") || this.stringField(record, "step") || "queue";
+    const status = this.stringField(record, "status") || "Queued";
+    const mapped: InngestJob = {
+      id: id || "",
+      run_id: this.stringField(record, "run_id") || runId,
+      step,
+      status: status as InngestJob["status"],
+      started_at: startedAt || "",
+    };
+    return this.validateResponse<InngestJob>(mapped, InngestJobSchema);
+  }
 
-    const dataRecord = eventRecord.data as Record<string, unknown>;
-    const eventInfo =
-      dataRecord.event || (Array.isArray(dataRecord.events) ? dataRecord.events[0] : null);
+  private isQueueItem(record: Record<string, unknown>): boolean {
+    return (
+      "JobID" in record ||
+      "at" in record ||
+      "kind" in record ||
+      "position" in record ||
+      "attempt" in record
+    );
+  }
 
-    if (!eventInfo || typeof eventInfo !== "object") {
-      return null;
-    }
-
-    const eventInfoRecord = eventInfo as Record<string, unknown>;
-    return eventInfoRecord.data ?? null;
+  private stringField(record: Record<string, unknown>, key: string): string | null {
+    const value = record[key];
+    return typeof value === "string" && value.length > 0 ? value : null;
   }
 
   private runMatchesFilters(
@@ -611,14 +653,22 @@ export class InngestClient {
     return matchesFunctionId || matchesFunctionName;
   }
 
-  private buildRunsResponse(runs: InngestRun[], limit?: number): ListRunsResponse {
+  private buildRunsResponse(
+    runs: InngestRun[],
+    cursor: string | undefined,
+    hasMore: boolean,
+  ): ListRunsResponse {
     const result: ListRunsResponse = {
-      data: runs.slice(0, limit || 20),
+      data: runs,
+      has_more: hasMore,
       metadata: {
         fetched_at: new Date().toISOString(),
         cached_until: null,
       },
     };
+    if (hasMore && cursor) {
+      result.cursor = cursor;
+    }
 
     return this.validateResponse<ListRunsResponse>(result, ListRunsResponseSchema);
   }

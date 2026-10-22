@@ -35,6 +35,17 @@ describe("API Types Validation", () => {
       expect(() => InngestRunSchema.parse(minimalRun)).not.toThrow();
     });
 
+    it("treats a null end time as a run that has not ended", () => {
+      const running = {
+        run_id: "01HWAVJ8ASQ5C3FXV32JS9DV9Q",
+        status: "Running",
+        run_started_at: "2024-04-25T14:46:45.337Z",
+        ended_at: null,
+      };
+
+      expect(InngestRunSchema.parse(running).ended_at).toBeUndefined();
+    });
+
     it("should reject invalid status", () => {
       const invalidRun = {
         run_id: "01HWAVJ8ASQ5C3FXV32JS9DV9Q",

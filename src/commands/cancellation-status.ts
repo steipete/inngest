@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { Command } from "commander";
 import { InngestClient } from "../api/client.js";
-import { getConfig } from "../utils/config.js";
+import { type Environment, getConfig } from "../utils/config.js";
 import { displayError, outputJSON } from "../utils/display.js";
 
 export function createCancellationStatusCommand(): Command {
@@ -9,9 +9,14 @@ export function createCancellationStatusCommand(): Command {
     .description("Check the status of a bulk cancellation")
     .argument("<cancellationId>", "Cancellation ID to check")
     .option("--format <format>", "Output format: table or json (default: table)", "table")
-    .action(async (cancellationId, options) => {
+    .action(async (cancellationId, options, command) => {
       try {
-        const config = getConfig();
+        const globalOpts = command.parent?.opts() || {};
+        const config = getConfig({
+          env: globalOpts.env as Environment,
+          devPort: globalOpts.devPort,
+          environmentSlug: globalOpts.envSlug,
+        });
         const client = new InngestClient(config);
 
         const status = await client.getCancellationStatus(cancellationId);

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept in-progress runs whose end time is null, so status and watch can show a run that is still going.
+- List runs from each event's function runs, and page with the last event id, instead of reading a run id out of the sender payload.
+- Show the queue items returned for a run instead of rejecting that payload.
+- Honor `--env`, `--dev-port`, and `--env-slug` for watch, cancel, and cancellation-status.
+- Read cancellation status from the cancellation list.
+
 ## [0.10.5] - 2026-10-20
 
 **Highlights:** Keep CLI output free of dotenv startup messages and update dependencies to address the tinypool security vulnerability while retaining Node.js 20 support.
