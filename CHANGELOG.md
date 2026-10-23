@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Update Vitest, coverage, Oxfmt, and Oxlint after the three-day release-age gate, preserving Node.js 20 support and patched dependency floors.
+
 ## [0.10.5] - 2026-10-20
 
 **Highlights:** Keep CLI output free of dotenv startup messages and update dependencies to address the tinypool security vulnerability while retaining Node.js 20 support.
