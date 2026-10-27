@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refresh dotenv to 18.0.9 and Vite to 8.3.5 after the three-day release-age gate, retaining Node.js 20 support.
+
 - Update Vitest, coverage, Oxfmt, and Oxlint after the three-day release-age gate, preserving Node.js 20 support and patched dependency floors.
 
 ## [0.10.5] - 2026-10-20
