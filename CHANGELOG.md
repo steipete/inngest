@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-11-05
+
+**Highlights:** Fix custom credential leakage across HTTP redirects with updated Axios and follow-redirects, while retaining Node.js 20 support.
+
 ### Changed
 
 - Update Axios and follow-redirects to fix custom credential leakage across redirects, and refresh compatible lint tooling after the three-day cooldown while preserving Node.js 20 support. Thanks @dependabot. (#23)
