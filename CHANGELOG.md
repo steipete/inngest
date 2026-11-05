@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Update Vitest, coverage, Oxfmt, and Oxlint after the three-day release-age gate, preserving Node.js 20 support and patched dependency floors.
 
+### Verification
+
+[npm 0.10.6](https://www.npmjs.com/package/@steipete/inngest/v/0.10.6) · [Registry tarball](https://registry.npmjs.org/@steipete/inngest/-/inngest-0.10.6.tgz) · [Integrity and provenance metadata](https://registry.npmjs.org/@steipete/inngest/0.10.6) · [Release checksums](https://github.com/steipete/inngest/releases/download/v0.10.6/SHA256SUMS) · [Publication CI](https://github.com/steipete/inngest/actions/runs/42081221326)
+
 ## [0.10.5] - 2026-10-20
 
 **Highlights:** Keep CLI output free of dotenv startup messages and update dependencies to address the tinypool security vulnerability while retaining Node.js 20 support.
