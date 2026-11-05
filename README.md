@@ -241,23 +241,21 @@ Use the `--verbose` or `-v` flag to see detailed debug information during comman
 # See performance metrics and API call details
 inngest list --status Failed --details --verbose
 
-# Monitor search progress through time chunks
+# See pagination while a status filter loads more events
 inngest list --status Failed --hours 168 --verbose
 ```
 
 **Debug information includes:**
 
 - API response metadata and timing
-- Parallel chunk processing progress
-- Pagination and search optimization details
-- Event filtering and early termination stats
+- Pagination progress for a status search
+- Event filtering details
 
 ### Performance Features
 
 The CLI includes several performance optimizations:
 
-- **Parallel API requests**: Up to 6 concurrent time-based chunks
-- **Early termination**: Stops fetching when enough results found
+- **Requested window**: a status search keeps the time bounds from that command on every page
 - **Smart result limiting**: Requests optimal amount for filtering
 - **Efficient pagination**: Uses cursors when available
 

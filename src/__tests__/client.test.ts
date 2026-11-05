@@ -282,6 +282,97 @@ describe("InngestClient", () => {
       );
       expect(result.data).toHaveLength(0);
     });
+
+    async function listStatusSearch(
+      options: { status: string; hours?: number; after?: string; before?: string },
+      eventsCalls: { count: number },
+    ): Promise<string[]> {
+      const mockAxiosInstance = mockedAxios.create();
+      vi.mocked(mockAxiosInstance.get).mockImplementation(async (url: string) => {
+        const target = String(url);
+        if (target.startsWith("/v1/runs/")) {
+          return {
+            data: {
+              data: {
+                run_id: "01HWAVJ8ASQ5C3FXV32JS9DV9Q",
+                status: options.status,
+                run_started_at: "2024-04-25T14:46:45.337Z",
+              },
+            },
+          };
+        }
+
+        eventsCalls.count += 1;
+        if (eventsCalls.count === 1) {
+          return {
+            data: {
+              data: [
+                {
+                  name: "test.event",
+                  data: { run_id: "01HWAVJ8ASQ5C3FXV32JS9DV9Q" },
+                },
+              ],
+              metadata: { next_cursor: "page-2" },
+            },
+          };
+        }
+
+        return { data: { data: [], metadata: {} } };
+      });
+
+      await client.listRuns({
+        status: options.status,
+        limit: 20,
+        ...(options.hours === undefined ? {} : { hours: options.hours }),
+        ...(options.after === undefined ? {} : { after: options.after }),
+        ...(options.before === undefined ? {} : { before: options.before }),
+      });
+
+      return vi
+        .mocked(mockAxiosInstance.get)
+        .mock.calls.map((call) => String(call[0]))
+        .filter((url) => url.startsWith("/v1/events"));
+    }
+
+    it("should keep the requested hours window on every status search page", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+      try {
+        const hoursAgo = new Date();
+        hoursAgo.setHours(hoursAgo.getHours() - 168);
+
+        const eventUrls = await listStatusSearch({ status: "Failed", hours: 168 }, { count: 0 });
+
+        expect(eventUrls.length).toBeGreaterThan(1);
+        expect(eventUrls.some((url) => url.includes("cursor=page-2"))).toBe(true);
+        for (const url of eventUrls) {
+          const params = new URLSearchParams(url.split("?")[1]);
+          expect(params.get("received_after")).toBe(hoursAgo.toISOString());
+          expect(params.get("received_before")).toBeNull();
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("should not replace an explicit window with recent status slices", async () => {
+      const eventUrls = await listStatusSearch(
+        {
+          status: "Completed",
+          after: "2020-01-01T00:00:00.000Z",
+          before: "2020-01-02T00:00:00.000Z",
+        },
+        { count: 0 },
+      );
+
+      expect(eventUrls.length).toBeGreaterThan(1);
+      for (const url of eventUrls) {
+        const params = new URLSearchParams(url.split("?")[1]);
+        expect(params.get("received_after")).toBe("2020-01-01T00:00:00.000Z");
+        const before = params.get("received_before");
+        expect(before === null || before === "2020-01-02T00:00:00.000Z").toBe(true);
+      }
+    });
   });
 
   describe("bulkCancel", () => {
