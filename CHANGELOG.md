@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `list` sends every time bound together. `--after` with `--before` keeps the end, and `--before` with `--hours` keeps the lookback.
+
 ## [0.10.6] - 2026-11-05
 
 **Highlights:** Fix custom credential leakage across HTTP redirects with updated Axios and follow-redirects, while retaining Node.js 20 support.

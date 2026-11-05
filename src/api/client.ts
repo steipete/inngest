@@ -428,19 +428,24 @@ export class InngestClient {
     eventsParams.append("limit", eventLimit.toString());
     if (options.cursor) eventsParams.append("cursor", options.cursor);
 
+    // --before is its own bound. --after wins when both it and --hours
+    // would set received_after. A status search with no window still
+    // uses the existing six-month lookback.
     if (options.after) {
       eventsParams.append("received_after", options.after);
-    } else if (options.before) {
-      eventsParams.append("received_before", options.before);
     } else if (options.hours) {
       const hoursAgo = new Date();
       hoursAgo.setHours(hoursAgo.getHours() - options.hours);
       eventsParams.append("received_after", hoursAgo.toISOString());
-    } else if (options.status) {
+    } else if (!options.before && options.status) {
       const monthsAgo = new Date();
       monthsAgo.setMonth(monthsAgo.getMonth() - 6);
       eventsParams.append("received_after", monthsAgo.toISOString());
       this.debug(`Status search going back to: ${monthsAgo.toISOString()}`);
+    }
+
+    if (options.before) {
+      eventsParams.append("received_before", options.before);
     }
 
     return eventsParams;
