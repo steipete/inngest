@@ -5,6 +5,7 @@ const lockfile = readFileSync(new URL("../../pnpm-lock.yaml", import.meta.url), 
 
 describe("dependency security floors", () => {
   for (const [name, minimum] of [
+    ["follow-redirects", [1, 16, 2]],
     ["tinypool", [2, 1, 2]],
     ["source-map-js", [1, 2, 2]],
   ] as const) {

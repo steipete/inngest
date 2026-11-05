@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Update Axios and follow-redirects to fix custom credential leakage across redirects, and refresh compatible lint tooling after the three-day cooldown while preserving Node.js 20 support. Thanks @dependabot. (#23)
 - Refresh dotenv to 18.0.9 and Vite to 8.3.5 after the three-day release-age gate, retaining Node.js 20 support.
 
 - Update Vitest, coverage, Oxfmt, and Oxlint after the three-day release-age gate, preserving Node.js 20 support and patched dependency floors.
