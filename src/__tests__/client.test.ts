@@ -282,6 +282,47 @@ describe("InngestClient", () => {
       );
       expect(result.data).toHaveLength(0);
     });
+
+    it("should send both after and before bounds on the events query", async () => {
+      const mockAxiosInstance = mockedAxios.create();
+      vi.mocked(mockAxiosInstance.get).mockResolvedValue({ data: { data: [] } });
+
+      await client.listRuns({
+        after: "2024-01-01T00:00:00.000Z",
+        before: "2024-01-02T00:00:00.000Z",
+      });
+
+      const requestUrl = String(vi.mocked(mockAxiosInstance.get).mock.calls[0]?.[0]);
+      const params = new URLSearchParams(requestUrl.split("?")[1]);
+      expect(params.get("received_after")).toBe("2024-01-01T00:00:00.000Z");
+      expect(params.get("received_before")).toBe("2024-01-02T00:00:00.000Z");
+      expect(vi.mocked(mockAxiosInstance.get)).toHaveBeenCalledTimes(1);
+    });
+
+    it("should send the hours lookback together with before", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+      try {
+        const hoursAgo = new Date();
+        hoursAgo.setHours(hoursAgo.getHours() - 24);
+
+        const mockAxiosInstance = mockedAxios.create();
+        vi.mocked(mockAxiosInstance.get).mockResolvedValue({ data: { data: [] } });
+
+        await client.listRuns({
+          before: "2024-06-15T00:00:00.000Z",
+          hours: 24,
+        });
+
+        const requestUrl = String(vi.mocked(mockAxiosInstance.get).mock.calls[0]?.[0]);
+        const params = new URLSearchParams(requestUrl.split("?")[1]);
+        expect(params.get("received_before")).toBe("2024-06-15T00:00:00.000Z");
+        expect(params.get("received_after")).toBe(hoursAgo.toISOString());
+        expect(vi.mocked(mockAxiosInstance.get)).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe("bulkCancel", () => {
