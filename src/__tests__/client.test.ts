@@ -2,6 +2,18 @@ import axios from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InngestClient } from "../api/client.js";
 
+const HOUR_MS = 60 * 60 * 1000;
+const WINDOW_SLACK_MS = 5 * 60 * 1000;
+
+function receivedAfterMs(url: unknown): number {
+  const params = new URL(String(url), "http://stand-in.local").searchParams;
+  const receivedAfter = params.get("received_after");
+  if (!receivedAfter) {
+    throw new Error(`missing received_after in ${String(url)}`);
+  }
+  return new Date(receivedAfter).getTime();
+}
+
 vi.mock("axios");
 const mockedAxios = vi.mocked(axios);
 
@@ -281,6 +293,27 @@ describe("InngestClient", () => {
         expect.stringMatching(/\/v1\/events\?limit=100&cursor=test-cursor&received_after=/),
       );
       expect(result.data).toHaveLength(0);
+    });
+
+    it("should search the last 24 hours for a status filter unless hours is set", async () => {
+      const mockResponse = {
+        data: [],
+        has_more: false,
+      };
+      const mockAxiosInstance = mockedAxios.create();
+      const mockGet = vi.mocked(mockAxiosInstance.get);
+      mockGet.mockResolvedValue({ data: mockResponse });
+
+      const defaultStartedAt = Date.now();
+      await client.listRuns({ status: "Failed" });
+      const defaultAgeMs = defaultStartedAt - receivedAfterMs(mockGet.mock.calls[0]?.[0]);
+      expect(Math.abs(defaultAgeMs - 24 * HOUR_MS)).toBeLessThan(WINDOW_SLACK_MS);
+
+      mockGet.mockClear();
+      const hoursStartedAt = Date.now();
+      await client.listRuns({ status: "Failed", hours: 48 });
+      const hoursAgeMs = hoursStartedAt - receivedAfterMs(mockGet.mock.calls[0]?.[0]);
+      expect(Math.abs(hoursAgeMs - 48 * HOUR_MS)).toBeLessThan(WINDOW_SLACK_MS);
     });
   });
 

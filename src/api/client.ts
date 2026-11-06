@@ -437,10 +437,10 @@ export class InngestClient {
       hoursAgo.setHours(hoursAgo.getHours() - options.hours);
       eventsParams.append("received_after", hoursAgo.toISOString());
     } else if (options.status) {
-      const monthsAgo = new Date();
-      monthsAgo.setMonth(monthsAgo.getMonth() - 6);
-      eventsParams.append("received_after", monthsAgo.toISOString());
-      this.debug(`Status search going back to: ${monthsAgo.toISOString()}`);
+      const hoursAgo = new Date();
+      hoursAgo.setHours(hoursAgo.getHours() - 24);
+      eventsParams.append("received_after", hoursAgo.toISOString());
+      this.debug(`Status search going back to: ${hoursAgo.toISOString()}`);
     }
 
     return eventsParams;
