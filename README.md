@@ -181,6 +181,9 @@ inngest watch --run 01HWAVJ8ASQ5C3FXV32JS9DV9Q --timeout 30
 
 ### Cancel Runs
 
+Bulk cancellation requires a past ISO 8601 `--before` timestamp. If supplied,
+`--after` must be earlier than `--before`. Dry runs validate the same bounds.
+
 ```bash
 # Cancel a specific run (with confirmation)
 inngest cancel --run 01HWAVJ8ASQ5C3FXV32JS9DV9Q
@@ -188,8 +191,8 @@ inngest cancel --run 01HWAVJ8ASQ5C3FXV32JS9DV9Q
 # Cancel without confirmation
 inngest cancel --run 01HWAVJ8ASQ5C3FXV32JS9DV9Q --yes
 
-# Bulk cancel by function (requires app-id)
-inngest cancel --app-id "my-app" --function "send-email" --yes
+# Bulk cancel by function (requires app-id and a past --before timestamp)
+inngest cancel --app-id "my-app" --function "send-email" --before "2024-01-02T00:00:00Z" --yes
 
 # Bulk cancel with time range
 inngest cancel --app-id "my-app" --function "process-order" \
@@ -198,14 +201,14 @@ inngest cancel --app-id "my-app" --function "process-order" \
 
 # Conditional cancellation with CEL expression
 inngest cancel --app-id "my-app" --function "notify-user" \
-  --if 'event.data.userId == "user_123"' --yes
+  --if 'event.data.userId == "user_123"' --before "2024-01-02T00:00:00Z" --yes
 
 # Dry run (preview what would be cancelled)
-inngest cancel --app-id "my-app" --function "send-email" --dry-run
+inngest cancel --app-id "my-app" --function "send-email" --before "2024-01-02T00:00:00Z" --dry-run
 
 # JSON output for cancel operations
 inngest cancel --run 01HWAVJ8ASQ5 --yes --format json
-inngest cancel --app-id "my-app" --function "send-email" --dry-run --format json
+inngest cancel --app-id "my-app" --function "send-email" --before "2024-01-02T00:00:00Z" --dry-run --format json
 ```
 
 ### View Job Details
@@ -241,23 +244,21 @@ Use the `--verbose` or `-v` flag to see detailed debug information during comman
 # See performance metrics and API call details
 inngest list --status Failed --details --verbose
 
-# Monitor search progress through time chunks
+# See pagination while a status filter loads more events
 inngest list --status Failed --hours 168 --verbose
 ```
 
 **Debug information includes:**
 
 - API response metadata and timing
-- Parallel chunk processing progress
-- Pagination and search optimization details
-- Event filtering and early termination stats
+- Pagination progress for a status search
+- Event filtering details
 
 ### Performance Features
 
 The CLI includes several performance optimizations:
 
-- **Parallel API requests**: Up to 6 concurrent time-based chunks
-- **Early termination**: Stops fetching when enough results found
+- **Requested window**: a status search keeps the time bounds from that command on every page
 - **Smart result limiting**: Requests optimal amount for filtering
 - **Efficient pagination**: Uses cursors when available
 

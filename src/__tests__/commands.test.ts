@@ -443,22 +443,296 @@ describe("Command Logic Integration", () => {
       });
 
       await cancelCommand.parseAsync(
-        ["--function", "fn-id", "--app-id", "app-123", "--yes", "--format", "json"],
+        [
+          "--function",
+          "fn-id",
+          "--app-id",
+          "app-123",
+          "--before",
+          "2020-01-02T00:00:00Z",
+          "--yes",
+          "--format",
+          "json",
+        ],
         { from: "user" },
       );
 
       expect(mockClientInstance.bulkCancel).toHaveBeenCalledWith({
         app_id: "app-123",
         function_id: "fn-id",
-        started_after: undefined,
-        started_before: undefined,
-        if: undefined,
+        started_before: "2020-01-02T00:00:00Z",
       });
       expect(mockOutputJSON).toHaveBeenCalledWith({
         action: "bulk_cancelled",
         cancellation_id: "123",
         status: "pending",
       });
+    });
+
+    it("rejects bulk cancellation without --before before any HTTP call", async () => {
+      const cancelCommand = createCancelCommand();
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+
+      await cancelCommand.parseAsync(
+        ["--function", "fn-id", "--app-id", "app-123", "--yes", "--format", "json"],
+        { from: "user" },
+      );
+
+      expect(mockDisplayError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringMatching(/--before is required/) }),
+      );
+      expect(mockClientInstance.bulkCancel).not.toHaveBeenCalled();
+      expect(mockOutputJSON).not.toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+
+      exitSpy.mockRestore();
+    });
+
+    it("rejects a dry-run bulk cancellation without --before before any HTTP call", async () => {
+      const cancelCommand = createCancelCommand();
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+
+      await cancelCommand.parseAsync(["--function", "fn-id", "--app-id", "app-123", "--dry-run"], {
+        from: "user",
+      });
+
+      expect(mockDisplayError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringMatching(/--before is required/) }),
+      );
+      expect(mockClientInstance.bulkCancel).not.toHaveBeenCalled();
+      expect(mockOutputJSON).not.toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+
+      exitSpy.mockRestore();
+    });
+
+    it("rejects a future --before before any HTTP call", async () => {
+      const cancelCommand = createCancelCommand();
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+
+      await cancelCommand.parseAsync(
+        ["--function", "fn-id", "--app-id", "app-123", "--before", "2099-01-01T00:00:00Z", "--yes"],
+        { from: "user" },
+      );
+
+      expect(mockDisplayError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringMatching(/--before must be in the past/) }),
+      );
+      expect(mockClientInstance.bulkCancel).not.toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+
+      exitSpy.mockRestore();
+    });
+
+    it("rejects a dry-run when --before is in the future", async () => {
+      const cancelCommand = createCancelCommand();
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+
+      await cancelCommand.parseAsync(
+        [
+          "--function",
+          "fn-id",
+          "--app-id",
+          "app-123",
+          "--before",
+          "2099-01-01T00:00:00Z",
+          "--dry-run",
+          "--format",
+          "json",
+        ],
+        { from: "user" },
+      );
+
+      expect(mockDisplayError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringMatching(/--before must be in the past/) }),
+      );
+      expect(mockClientInstance.bulkCancel).not.toHaveBeenCalled();
+      expect(mockOutputJSON).not.toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+
+      exitSpy.mockRestore();
+    });
+
+    it("rejects --after later than --before before any HTTP call", async () => {
+      const cancelCommand = createCancelCommand();
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+
+      await cancelCommand.parseAsync(
+        [
+          "--function",
+          "fn-id",
+          "--app-id",
+          "app-123",
+          "--after",
+          "2020-01-03T00:00:00Z",
+          "--before",
+          "2020-01-02T00:00:00Z",
+          "--yes",
+        ],
+        { from: "user" },
+      );
+
+      expect(mockDisplayError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringMatching(/--after must be earlier than --before/),
+        }),
+      );
+      expect(mockClientInstance.bulkCancel).not.toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+
+      exitSpy.mockRestore();
+    });
+
+    it("rejects a dry-run when --after is later than --before", async () => {
+      const cancelCommand = createCancelCommand();
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+
+      await cancelCommand.parseAsync(
+        [
+          "--function",
+          "fn-id",
+          "--app-id",
+          "app-123",
+          "--after",
+          "2020-01-03T00:00:00Z",
+          "--before",
+          "2020-01-02T00:00:00Z",
+          "--dry-run",
+          "--format",
+          "json",
+        ],
+        { from: "user" },
+      );
+
+      expect(mockDisplayError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringMatching(/--after must be earlier than --before/),
+        }),
+      );
+      expect(mockClientInstance.bulkCancel).not.toHaveBeenCalled();
+      expect(mockOutputJSON).not.toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+
+      exitSpy.mockRestore();
+    });
+
+    it("rejects --after equal to --before before any HTTP call", async () => {
+      const cancelCommand = createCancelCommand();
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+
+      await cancelCommand.parseAsync(
+        [
+          "--function",
+          "fn-id",
+          "--app-id",
+          "app-123",
+          "--after",
+          "2020-01-02T00:00:00Z",
+          "--before",
+          "2020-01-02T00:00:00Z",
+          "--dry-run",
+        ],
+        { from: "user" },
+      );
+
+      expect(mockDisplayError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringMatching(/--after must be earlier than --before/),
+        }),
+      );
+      expect(mockClientInstance.bulkCancel).not.toHaveBeenCalled();
+      expect(mockOutputJSON).not.toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+
+      exitSpy.mockRestore();
+    });
+
+    it("rejects a non-ISO --before before any HTTP call", async () => {
+      const cancelCommand = createCancelCommand();
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+
+      await cancelCommand.parseAsync(
+        ["--function", "fn-id", "--app-id", "app-123", "--before", "2020-01-02", "--dry-run"],
+        { from: "user" },
+      );
+
+      expect(mockDisplayError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringMatching(/Invalid --before timestamp format/),
+        }),
+      );
+      expect(mockClientInstance.bulkCancel).not.toHaveBeenCalled();
+      expect(mockOutputJSON).not.toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+
+      exitSpy.mockRestore();
+    });
+
+    it("builds a bulk cancellation request when --before is in the past", async () => {
+      const cancelCommand = createCancelCommand();
+      mockClientInstance.bulkCancel.mockResolvedValue({
+        cancellation_id: "123",
+        status: "pending",
+      });
+
+      await cancelCommand.parseAsync(
+        [
+          "--function",
+          "fn-id",
+          "--app-id",
+          "app-123",
+          "--after",
+          "2020-01-01T00:00:00Z",
+          "--before",
+          "2020-01-02T00:00:00Z",
+          "--yes",
+          "--format",
+          "json",
+        ],
+        { from: "user" },
+      );
+
+      expect(mockClientInstance.bulkCancel).toHaveBeenCalledWith({
+        app_id: "app-123",
+        function_id: "fn-id",
+        started_after: "2020-01-01T00:00:00Z",
+        started_before: "2020-01-02T00:00:00Z",
+      });
+      expect(mockOutputJSON).toHaveBeenCalledWith({
+        action: "bulk_cancelled",
+        cancellation_id: "123",
+        status: "pending",
+      });
+    });
+
+    it("prints a dry-run request when --before is in the past", async () => {
+      const cancelCommand = createCancelCommand();
+
+      await cancelCommand.parseAsync(
+        [
+          "--function",
+          "fn-id",
+          "--app-id",
+          "app-123",
+          "--before",
+          "2020-01-02T00:00:00Z",
+          "--dry-run",
+          "--format",
+          "json",
+        ],
+        { from: "user" },
+      );
+
+      expect(mockOutputJSON).toHaveBeenCalledWith({
+        action: "would_bulk_cancel",
+        request: {
+          app_id: "app-123",
+          function_id: "fn-id",
+          started_before: "2020-01-02T00:00:00Z",
+        },
+      });
+      expect(mockClientInstance.bulkCancel).not.toHaveBeenCalled();
+      expect(mockDisplayError).not.toHaveBeenCalled();
     });
   });
 
