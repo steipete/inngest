@@ -365,7 +365,7 @@ inngest list --status Failed --function-name "payment-processor" --details --lim
 
 ```bash
 # Preview what would be cancelled
-inngest cancel --app-id "my-app" --function "cleanup-task" --dry-run
+inngest cancel --app-id "my-app" --function "cleanup-task" --before "2024-01-02T00:00:00Z" --dry-run
 
 # Cancel all runs for a function from yesterday
 inngest cancel --app-id "my-app" --function "cleanup-task" \
