@@ -10,6 +10,13 @@ export class RunWatcher {
   private client: InngestClient;
   private isWatching = false;
   private intervalId: NodeJS.Timeout | null = null;
+  private sigintArmed = false;
+  // 128 + SIGINT. Stopping a watch must not look like a successful command.
+  private readonly onSigint = (): void => {
+    this.stopWatching();
+    displayInfo("Stopping watch...");
+    process.exit(130);
+  };
 
   constructor(client: InngestClient) {
     this.client = client;
@@ -21,6 +28,7 @@ export class RunWatcher {
     }
 
     this.isWatching = true;
+    this.armSigint();
     let lastStatus = "";
     const startTime = Date.now();
 
@@ -69,6 +77,7 @@ export class RunWatcher {
     }
 
     this.isWatching = true;
+    this.armSigint();
     let lastRunCount = 0;
     const startTime = Date.now();
 
@@ -124,11 +133,22 @@ export class RunWatcher {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
+    this.disarmSigint();
+  }
+
+  private armSigint(): void {
+    if (this.sigintArmed) {
+      return;
+    }
+    process.on("SIGINT", this.onSigint);
+    this.sigintArmed = true;
+  }
+
+  private disarmSigint(): void {
+    if (!this.sigintArmed) {
+      return;
+    }
+    process.removeListener("SIGINT", this.onSigint);
+    this.sigintArmed = false;
   }
 }
-
-// Handle graceful shutdown
-process.on("SIGINT", () => {
-  displayInfo("Stopping watch...");
-  process.exit(0);
-});

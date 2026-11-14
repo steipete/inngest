@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve both list time bounds and the requested window across status-search pages; default unbounded status searches to 24 hours. Thanks @SebTardif.
+- Require valid past bulk-cancellation bounds before requests or dry-run output. Thanks @SebTardif.
+- Scope Ctrl+C handling to active watches and exit with status 130. Thanks @SebTardif.
+
+### Changed
+
+- Refresh mature HTTP, dotenv, formatting, lint, and CI dependencies while retaining Node.js 20 support. Thanks @dependabot.
+
 ## [0.10.6] - 2026-11-05
 
 **Highlights:** Fix custom credential leakage across HTTP redirects with updated Axios and follow-redirects, while retaining Node.js 20 support.

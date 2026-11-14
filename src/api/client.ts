@@ -343,104 +343,27 @@ export class InngestClient {
     return additionalEvents;
   }
 
-  private async fetchTimeBasedChunks(
-    baseParams: URLSearchParams,
-    options: { hours?: number; status?: string; maxResults?: number },
-  ): Promise<unknown[]> {
-    const allEvents: unknown[] = [];
-
-    // Determine time range to search
-    const totalHours = options.hours || 168; // Default to 1 week
-    const chunkHours = 12; // Use smaller chunks for better parallelism
-    const chunks = Math.ceil(totalHours / chunkHours);
-    const maxResults = options.maxResults || 1000;
-
-    this.debug(
-      `Searching ${totalHours} hours in ${chunks} chunks of ${chunkHours} hours each (parallel)`,
-    );
-
-    // Create all chunk promises in parallel
-    const chunkPromises = [];
-    for (let i = 1; i < chunks && i <= 6; i++) {
-      // Limit to 6 parallel requests to avoid overwhelming the API
-      // Start from 1 since we already got the first chunk
-      const endHours = i * chunkHours;
-      const startHours = Math.min((i + 1) * chunkHours, totalHours);
-
-      const endTime = new Date();
-      endTime.setHours(endTime.getHours() - endHours);
-
-      const startTime = new Date();
-      startTime.setHours(startTime.getHours() - startHours);
-
-      const chunkParams = new URLSearchParams(baseParams);
-      chunkParams.set("received_after", startTime.toISOString());
-      chunkParams.set("received_before", endTime.toISOString());
-
-      this.debug(`Chunk ${i + 1}: ${startTime.toISOString()} to ${endTime.toISOString()}`);
-
-      chunkPromises.push(
-        this.client
-          .get(`/v1/events?${chunkParams}`)
-          .then((response) => ({
-            chunkIndex: i + 1,
-            events: response.data.data || [],
-          }))
-          .catch(() => ({
-            chunkIndex: i + 1,
-            events: [] as unknown[],
-            error: true,
-          })),
-      );
-    }
-
-    // Execute all chunks in parallel
-    const results = await Promise.all(chunkPromises);
-
-    // Sort results by chunk index to maintain chronological order
-    results.sort((a, b) => a.chunkIndex - b.chunkIndex);
-
-    for (const result of results) {
-      if ("error" in result) {
-        this.debug(`Error fetching chunk ${result.chunkIndex}, skipping`);
-        continue;
-      }
-
-      this.debug(`Chunk ${result.chunkIndex} returned ${result.events.length} events`);
-
-      if (result.events.length > 0) {
-        allEvents.push(...result.events);
-
-        // Early termination if we have enough events
-        if (allEvents.length >= maxResults) {
-          this.debug(`Early termination after ${allEvents.length} events (limit: ${maxResults})`);
-          break;
-        }
-      }
-    }
-
-    return allEvents.slice(0, maxResults);
-  }
-
   private buildEventsParams(options: ListRunsQueryOptions): URLSearchParams {
     const eventsParams = new URLSearchParams();
     const eventLimit = options.status ? 100 : options.limit || 50;
     eventsParams.append("limit", eventLimit.toString());
     if (options.cursor) eventsParams.append("cursor", options.cursor);
 
+    // --before is independent; --after takes precedence over --hours.
     if (options.after) {
       eventsParams.append("received_after", options.after);
-    } else if (options.before) {
-      eventsParams.append("received_before", options.before);
     } else if (options.hours) {
       const hoursAgo = new Date();
       hoursAgo.setHours(hoursAgo.getHours() - options.hours);
       eventsParams.append("received_after", hoursAgo.toISOString());
-    } else if (options.status) {
-      const monthsAgo = new Date();
-      monthsAgo.setMonth(monthsAgo.getMonth() - 6);
-      eventsParams.append("received_after", monthsAgo.toISOString());
-      this.debug(`Status search going back to: ${monthsAgo.toISOString()}`);
+    } else if (!options.before && options.status) {
+      const hoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      eventsParams.append("received_after", hoursAgo.toISOString());
+      this.debug(`Status search going back to: ${hoursAgo.toISOString()}`);
+    }
+
+    if (options.before) {
+      eventsParams.append("received_before", options.before);
     }
 
     return eventsParams;
@@ -469,18 +392,8 @@ export class InngestClient {
       return combinedEvents;
     }
 
-    const chunkOptions: { status: string; hours?: number; maxResults: number } = {
-      status: options.status,
-      maxResults: Math.max((options.limit || 20) * 5, 200),
-    };
-    if (typeof options.hours === "number") {
-      chunkOptions.hours = options.hours;
-    }
-
-    const timeBasedEvents = await this.fetchTimeBasedChunks(eventsParams, chunkOptions);
-    combinedEvents.push(...timeBasedEvents);
-    this.debug(`Total events after time-based search: ${combinedEvents.length}`);
-
+    // Keep the caller's received_after and received_before on every page.
+    // Do not replace that window with recent 12-hour slices.
     if (combinedEvents.length > 0) {
       const additionalEvents = await this.fetchAdditionalPages(eventsParams, initialResponse);
       combinedEvents.push(...additionalEvents);
