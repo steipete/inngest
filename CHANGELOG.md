@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-11-15
+
+**Highlights:** Keep status searches within the requested time window, validate bulk-cancellation bounds, and exit active watches cleanly on Ctrl+C.
+
 ### Fixed
 
 - Preserve both list time bounds and the requested window across status-search pages; default unbounded status searches to 24 hours. Thanks @SebTardif.
@@ -16,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Refresh mature HTTP, dotenv, formatting, lint, and CI dependencies while retaining Node.js 20 support. Thanks @dependabot.
+
+### Verification
+
+[npm 0.10.7](https://www.npmjs.com/package/@steipete/inngest/v/0.10.7) · [Registry tarball](https://registry.npmjs.org/@steipete/inngest/-/inngest-0.10.7.tgz) · [Integrity and provenance metadata](https://registry.npmjs.org/@steipete/inngest/0.10.7) · [Release checksums](https://github.com/steipete/inngest/releases/download/v0.10.7/SHA256SUMS) · [Source CI](https://github.com/steipete/inngest/actions/runs/43576491418) · [Publication workflow](https://github.com/steipete/inngest/actions/workflows/release.yml)
 
 ## [0.10.6] - 2026-11-05
 
