@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-11-15
+
+**Highlights:** Keep status searches within the requested time window, validate bulk-cancellation bounds, and exit active watches cleanly on Ctrl+C.
+
 ### Fixed
 
 - Preserve both list time bounds and the requested window across status-search pages; default unbounded status searches to 24 hours. Thanks @SebTardif.
