@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Refresh Axios, dotenv, Oxfmt, Oxlint, and compatible development-tool dependencies after the three-day cooldown while preserving Node.js 20 support and security overrides. Thanks @dependabot. (#37)
+
 ## [0.10.7] - 2026-11-15
 
 **Highlights:** Keep status searches within the requested time window, validate bulk-cancellation bounds, and exit active watches cleanly on Ctrl+C.
